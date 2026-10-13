@@ -1,0 +1,1 @@
+"""Capture Studio regression tests."""
