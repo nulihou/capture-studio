@@ -14,7 +14,7 @@ Windows 程序，用来给一块新的 KV260 采集 USB 摄像头数据。连接
 ## 使用
 
 ```powershell
-git clone https://github.com/REPLACE/kv260-capture-studio.git
+git clone https://github.com/nulihou/kv260-capture-studio.git
 cd kv260-capture-studio
 python -m capture_studio.portable_connect
 ```
