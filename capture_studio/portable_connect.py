@@ -9,6 +9,7 @@ import threading
 
 from .board_discover import ensure_ssh_key, find_board
 from .desktop import app_root
+from .desktop_ui import BG, _styles
 
 
 def resolve_connection_key(saved: str, home: Path) -> str:
@@ -48,29 +49,37 @@ def configure(parent=None, on_connect=None):
     config_file = root/'board_connection.json'
     defaults = connection_settings()
     window = tk.Toplevel(parent) if parent is not None else tk.Tk()
-    window.title('Capture Studio · 连接开发板')
-    window.geometry('680x520')
-    panel = ttk.Frame(window, padding=20)
-    panel.pack(fill='both', expand=True)
-    panel.columnconfigure(1,weight=1)
-    ttk.Label(panel,text='私钥会在这台电脑上自动准备。同一网络只有一块开发板时，地址也会自动填上。').grid(row=0,column=0,columnspan=3,sticky='w',pady=(0,8))
-    find_var = tk.StringVar(value='')
-    ttk.Label(panel,textvariable=find_var).grid(row=1,column=0,columnspan=3,sticky='w',pady=(0,8))
+    window.title("连接")
+    window.geometry("560x420")
+    window.configure(background=BG)
+    if parent is None:
+        _styles(window)
+    panel = ttk.Frame(window, padding=(24, 20), style="Card.TFrame")
+    panel.pack(fill="both", expand=True)
+    panel.columnconfigure(1, weight=1)
+    ttk.Label(panel, text="连接开发板", style="CardTitle.TLabel").grid(
+        row=0, column=0, columnspan=3, sticky="w", pady=(0, 12))
+    find_var = tk.StringVar(value="")
+    ttk.Label(panel, textvariable=find_var, style="Hint.TLabel").grid(
+        row=1, column=0, columnspan=3, sticky="w", pady=(0, 8))
     values = {}
-    for row, (name,label) in enumerate([('host','开发板IP / 主机名'),('user','SSH用户名'),('key','SSH私钥文件'),
-                                        ('board_root','板端平台目录'),('serial','摄像头序号，可留空')],2):
-        values[name] = tk.StringVar(value=defaults.get(name,''))
-        ttk.Label(panel,text=label).grid(row=row,column=0,sticky='w',padx=(0,12),pady=7)
-        ttk.Entry(panel,textvariable=values[name],width=48).grid(row=row,column=1,sticky='ew')
+    for row, (name, label) in enumerate([
+            ("host", "地址"), ("user", "用户"), ("key", "私钥"),
+            ("board_root", "板端目录"), ("serial", "摄像头序号")], 2):
+        values[name] = tk.StringVar(value=defaults.get(name, ""))
+        ttk.Label(panel, text=label, style="Field.TLabel").grid(
+            row=row, column=0, sticky="w", padx=(0, 16), pady=8)
+        ttk.Entry(panel, textvariable=values[name], width=42).grid(row=row, column=1, sticky="ew")
     password = tk.StringVar()
-    ttk.Label(panel,text='登录密码，仅新板第一次').grid(row=7,column=0,sticky='w',padx=(0,12),pady=7)
-    ttk.Entry(panel,textvariable=password,width=48,show='*').grid(row=7,column=1,sticky='ew')
+    ttk.Label(panel, text="密码", style="Field.TLabel").grid(
+        row=7, column=0, sticky="w", padx=(0, 16), pady=8)
+    ttk.Entry(panel, textvariable=password, width=42, show="*").grid(row=7, column=1, sticky="ew")
     def choose():
         path = filedialog.askopenfilename(title='选择SSH私钥（不是.pub公钥）')
         if path: values['key'].set(path)
-    ttk.Button(panel,text='选择',command=choose).grid(row=4,column=2,padx=6)
+    ttk.Button(panel, text="选择", command=choose, style="Quiet.TButton").grid(row=4, column=2, padx=(8, 0))
     def search(replace=False):
-        find_var.set('正在同一网络查找开发板…')
+        find_var.set("正在查找")
         def work():
             try:
                 ip, note = find_board()
@@ -85,8 +94,8 @@ def configure(parent=None, on_connect=None):
             except tk.TclError:
                 pass
         threading.Thread(target=work, daemon=True).start()
-    ttk.Button(panel,text='重新查找',command=lambda: search(True)).grid(row=2,column=2,padx=6)
-    ttk.Label(panel,text='序号留空时，只接一只摄像头会自动选用。\n新板第一次填写登录密码，软件把本机公钥装上；密码不保存。之后只用密钥。\n保存并连接会在板上创建采集目录、放入当前程序并启动。').grid(row=8,column=0,columnspan=3,sticky='w',pady=12)
+    ttk.Button(panel, text="查找", command=lambda: search(True), style="Quiet.TButton").grid(
+        row=2, column=2, padx=(8, 0))
     selected = {}
     def connect():
         data = {name:value.get().strip() for name,value in values.items()}
@@ -102,7 +111,8 @@ def configure(parent=None, on_connect=None):
         window.destroy()
         if on_connect is not None:
             on_connect(selected)
-    ttk.Button(panel,text='保存并连接',command=connect).grid(row=9,column=1,sticky='e')
+    ttk.Button(panel, text="保存并连接", command=connect, style="Primary.TButton").grid(
+        row=8, column=1, sticky="e", pady=(16, 0))
     if not defaults.get('host'):
         search()
     if parent is not None:

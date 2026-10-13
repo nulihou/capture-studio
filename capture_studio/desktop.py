@@ -293,8 +293,8 @@ class CaptureDesktop(tk.Tk):
         self._quiet_errors = False
         if error:
             if quiet:
-                self._log("自动连接还没成功：" + error)
-                self.lab_watch_var.set("开发板还没连上，过一会儿会再试。")
+                self._log("自动连接未成功：" + error)
+                self.lab_watch_var.set("未连接")
             else:
                 self._log("失败：" + error)
                 messagebox.showerror("操作失败", error)
@@ -507,27 +507,23 @@ class CaptureDesktop(tk.Tk):
     def _refresh_lab_identity(self) -> None:
         connected = self._board_connected
         self.lab_board_var.set(board_sentence(self._merged_board()) if connected
-                               else "开发板：还没连上。插上网线后会自动再试。")
+                               else "开发板未连接")
         selected = self.board_device.get().strip()
         info = next((item for item in self._board_infos if item.get("device") == selected), None)
         if info:
-            self.lab_camera_var.set("摄像头：" + camera_sentence(info))
+            self.lab_camera_var.set(camera_sentence(info))
         elif len(self._board_infos) > 1:
-            self.lab_camera_var.set(f"摄像头：插着 {len(self._board_infos)} 只，请在列表里选一只。")
+            self.lab_camera_var.set(f"{len(self._board_infos)} 只摄像头")
         elif connected:
-            self.lab_camera_var.set("摄像头：开发板已连上，USB 口上还没有摄像头。")
+            self.lab_camera_var.set("未发现摄像头")
         else:
-            self.lab_camera_var.set("摄像头：还没认出。")
-        if not connected:
-            self.lab_step_var.set("第 1 步：把开发板网线插上。第一次点「连接设置」选密钥，之后会自己连。")
-        elif not selected:
-            self.lab_step_var.set("第 2 步：把摄像头插到开发板的 USB 口，不要同时插在电脑上。")
-        elif self.board_session_id:
-            self.lab_step_var.set("正在采集。到时间会自己停止、取回并检查。")
-        elif getattr(self, "_live_stop_event", None) is None:
-            self.lab_step_var.set("第 3 步：看右边画面。要改亮暗或颜色，填数字后点「按这个参数看画面」。")
+            self.lab_camera_var.set("未发现摄像头")
+        if self.board_session_id:
+            self.lab_step_var.set("采集中")
+        elif getattr(self, "_live_stop_event", None) is not None:
+            self.lab_step_var.set("预览中")
         else:
-            self.lab_step_var.set("第 4 步：画面可以之后，点「录 60 秒并检查」。")
+            self.lab_step_var.set("")
 
     def _selected_camera_info(self) -> dict[str, Any] | None:
         selected = self.board_device.get().strip()
@@ -743,9 +739,9 @@ class CaptureDesktop(tk.Tk):
         from .portable_connect import connection_settings
         settings = connection_settings()
         if not settings.get("key") or not Path(str(settings.get("key"))).is_file():
-            self.lab_watch_var.set("第一次请点「连接设置」选好密钥。之后插上网线会自动认出开发板。")
+            self.lab_watch_var.set("缺少密钥")
             return
-        self.lab_watch_var.set("正在寻找开发板 " + str(settings.get("host") or "") + " …")
+        self.lab_watch_var.set("正在连接 " + str(settings.get("host") or ""))
         self._auto_connect_board(quiet=True)
 
     def _reopen_live_board(self) -> None:
@@ -1101,10 +1097,10 @@ class CaptureDesktop(tk.Tk):
             if not quiet:
                 self._configure_board()
             else:
-                self.lab_watch_var.set("第一次请点「连接设置」选好密钥。之后插上网线会自动认出开发板。")
+                self.lab_watch_var.set("缺少密钥")
             return
         if not settings.get('host') and quiet:
-            self.lab_watch_var.set("还没有开发板地址。打开连接设置后会在同一网络查找。")
+            self.lab_watch_var.set("缺少地址")
             return
         import argparse
         import socket

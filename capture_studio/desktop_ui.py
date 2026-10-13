@@ -1,8 +1,7 @@
 """Tkinter presentation for the portable PC/KV260 capture controller.
 
-The interface follows one operator path: choose host and camera, confirm one
-frame, record, then inspect or retrieve the session. Capture behavior lives in
-desktop.py and core.py; this module only owns layout and visual state.
+Light work surface, one blue for the primary action, and the picture larger
+than the form. Status lines state facts. Controls name the action.
 """
 
 from __future__ import annotations
@@ -19,26 +18,26 @@ from .gates import NAMES, WORDS
 
 
 FONT = "Microsoft YaHei UI"
-BG = "#E7EEEF"
+BG = "#F4F5F7"
 SURFACE = "#FFFFFF"
-INK = "#14303A"
-MUTED = "#3E5563"
-LINE = "#D3E0E4"
-ACCENT = "#0B6A78"
-ACCENT_DARK = "#084E5A"
-PREVIEW = "#0E242C"
-PREVIEW_INK = "#F4FBFC"
-PREVIEW_MUTED = "#D0E4E8"
-GOOD = "#0F7A52"
-WARN = "#8A6410"
-BAD = "#9B2C2C"
-CHIP = "#E4EEF0"
-CHIP_LINE = "#D3E0E4"
+INK = "#1F2329"
+MUTED = "#646A73"
+LINE = "#E5E6EB"
+ACCENT = "#1668DC"
+ACCENT_DARK = "#0E4EBE"
+PREVIEW = "#14171C"
+PREVIEW_INK = "#F2F3F5"
+PREVIEW_MUTED = "#C9CDD4"
+GOOD = "#1A7F37"
+WARN = "#9A6700"
+BAD = "#CF222E"
+CHIP = "#F2F3F5"
+CHIP_LINE = "#E5E6EB"
 DURATION_CHOICES = ("60 秒短检", "10 分钟关口", "手动停止")
 # Measured on HHW001, MJPEG 640x480. Absolute 100 is the UVC value, nominally 10 ms.
 EXPOSURE_PRESETS = {
-    "看清画面": ("自动", "", "更亮，用来对镜头、看清眼前有什么。室内大约每秒 11 张，会慢一些。"),
-    "看流畅": ("快门优先", "100", "大约每秒 30 张。室内会变暗，只用来看快不快，不适合当最后要的画面。"),
+    "看清画面": ("自动", "", "更亮"),
+    "看流畅": ("快门优先", "100", "室内会变暗"),
 }
 PRESET_ALIASES = {
     "看清场景": "看清画面",
@@ -48,9 +47,9 @@ PRESET_ALIASES = {
     "自定义": "自己设置",
 }
 GATE_COLORS = {
-    "pass": ("#E5F6EE", GOOD),
+    "pass": ("#E8F6EE", GOOD),
     "fail": ("#FDECEC", BAD),
-    "pending": ("#F8F1DE", WARN),
+    "pending": ("#FFF7E6", WARN),
 }
 
 
@@ -66,16 +65,16 @@ def _styles(app: tk.Tk) -> None:
     style.configure("CardBody.TFrame", background=SURFACE, relief="flat", borderwidth=0)
     style.configure("App.TLabel", background=BG, foreground=INK, font=(FONT, 10))
     style.configure("CardTitle.TLabel", background=SURFACE, foreground=INK,
-                    font=(FONT, 12, "bold"))
+                    font=(FONT, 13))
     style.configure("Card.TLabel", background=SURFACE, foreground=INK, font=(FONT, 10))
-    style.configure("Hint.TLabel", background=SURFACE, foreground=MUTED, font=(FONT, 9))
-    style.configure("Field.TLabel", background=SURFACE, foreground=MUTED, font=(FONT, 9))
-    style.configure("Footer.TLabel", background=BG, foreground=MUTED, font=(FONT, 9))
-    style.configure("TNotebook", background=BG, borderwidth=0, tabmargins=(2, 2, 2, 0))
-    style.configure("TNotebook.Tab", background="#D7E3E6", foreground=MUTED,
-                    padding=(14, 4), font=(FONT, 10), borderwidth=0)
+    style.configure("Hint.TLabel", background=SURFACE, foreground=MUTED, font=(FONT, 10))
+    style.configure("Field.TLabel", background=SURFACE, foreground=INK, font=(FONT, 10))
+    style.configure("Footer.TLabel", background=BG, foreground=MUTED, font=(FONT, 10))
+    style.configure("TNotebook", background=BG, borderwidth=0, tabmargins=(0, 8, 0, 0))
+    style.configure("TNotebook.Tab", background=BG, foreground=MUTED,
+                    padding=(16, 8), font=(FONT, 10), borderwidth=0)
     style.map("TNotebook.Tab",
-              background=[("selected", SURFACE), ("active", "#E3ECEE")],
+              background=[("selected", SURFACE), ("active", "#EEF0F3")],
               foreground=[("selected", ACCENT), ("active", INK)])
     style.configure("TEntry", fieldbackground=SURFACE, foreground=INK,
                     bordercolor=LINE, lightcolor=LINE, darkcolor=LINE, padding=(6, 2))
@@ -86,31 +85,31 @@ def _styles(app: tk.Tk) -> None:
               fieldbackground=[("readonly", SURFACE), ("disabled", "#F3F6F7")],
               foreground=[("disabled", "#8AA0A8")])
     style.configure("Primary.TButton", background=ACCENT, foreground=SURFACE,
-                    borderwidth=0, padding=(12, 4), font=(FONT, 10, "bold"),
-                    focuscolor=PREVIEW_INK)
+                    borderwidth=0, padding=(14, 7), font=(FONT, 10),
+                    focuscolor=SURFACE)
     style.map("Primary.TButton",
-              background=[("disabled", "#B7CDD2"), ("active", ACCENT_DARK),
+              background=[("disabled", "#C9CDD4"), ("active", ACCENT_DARK),
                           ("pressed", ACCENT_DARK)],
-              foreground=[("disabled", "#F4F8F8"), ("active", SURFACE)])
-    style.configure("Secondary.TButton", background="#E5F1F3", foreground=ACCENT_DARK,
-                    borderwidth=0, padding=(11, 4), font=(FONT, 10),
+              foreground=[("disabled", SURFACE), ("active", SURFACE)])
+    style.configure("Secondary.TButton", background=SURFACE, foreground=INK,
+                    bordercolor=LINE, borderwidth=1, padding=(12, 6), font=(FONT, 10),
                     focuscolor=ACCENT)
     style.map("Secondary.TButton",
-              background=[("active", "#D3E7EA"), ("pressed", "#D3E7EA"),
-                          ("disabled", "#F0F4F5")],
-              foreground=[("disabled", "#8AA0A8")])
+              background=[("active", "#F2F3F5"), ("pressed", "#E5E6EB"),
+                          ("disabled", SURFACE)],
+              foreground=[("disabled", "#8A9199")])
     style.configure("Quiet.TButton", background=SURFACE, foreground=INK,
-                    bordercolor=LINE, borderwidth=1, padding=(8, 4), font=(FONT, 9),
+                    bordercolor=LINE, borderwidth=1, padding=(10, 6), font=(FONT, 10),
                     focuscolor=ACCENT)
     style.map("Quiet.TButton",
-              background=[("active", "#F3F7F8"), ("pressed", "#E7EEEF"),
+              background=[("active", "#F2F3F5"), ("pressed", "#E5E6EB"),
                           ("disabled", SURFACE)],
-              foreground=[("disabled", "#8AA0A8")])
+              foreground=[("disabled", "#8A9199")])
     style.configure("Treeview", background=SURFACE, fieldbackground=SURFACE,
-                    foreground=INK, rowheight=26, borderwidth=0, font=(FONT, 9))
-    style.configure("Treeview.Heading", background="#F3F7F8", foreground=MUTED,
-                    font=(FONT, 9), relief="flat", padding=(6, 5))
-    style.map("Treeview", background=[("selected", "#D7EBEE")],
+                    foreground=INK, rowheight=32, borderwidth=0, font=(FONT, 10))
+    style.configure("Treeview.Heading", background="#F7F8FA", foreground=MUTED,
+                    font=(FONT, 10), relief="flat", padding=(8, 6))
+    style.map("Treeview", background=[("selected", "#E8F3FF")],
               foreground=[("selected", INK)])
     style.configure("TScrollbar", background=BG, troughcolor=BG, borderwidth=0,
                     arrowcolor=MUTED)
@@ -180,23 +179,8 @@ def _empty_preview(canvas: tk.Canvas, width: int = 320, height: int = 180) -> No
     canvas.delete("all")
     width = max(int(width), 2)
     height = max(int(height), 2)
-    arm = max(16, min(36, width // 9))
-    inset = max(14, min(28, width // 12))
-    color = "#4E7C84"
-    corners = (
-        (inset, inset, 1, 1),
-        (width - inset, inset, -1, 1),
-        (inset, height - inset, 1, -1),
-        (width - inset, height - inset, -1, -1),
-    )
-    for x, y, dx, dy in corners:
-        canvas.create_line(x, y, x + dx * arm, y, fill=color, width=1)
-        canvas.create_line(x, y, x, y + dy * arm, fill=color, width=1)
-    canvas.create_text(width // 2, height // 2 - 12, text="尚无画面",
-                       fill=PREVIEW_INK, font=(FONT, 15, "bold"))
-    canvas.create_text(width // 2, height // 2 + 14,
-                       text=getattr(canvas, "empty_message", "点「预览一帧」确认视场"),
-                       fill=PREVIEW_MUTED, font=(FONT, 9))
+    canvas.create_text(width // 2, height // 2, text="无画面",
+                       fill=PREVIEW_MUTED, font=(FONT, 13))
 
 
 def layout_preview(canvas: tk.Canvas, box: tuple[int, int] | None = None) -> None:
@@ -229,16 +213,14 @@ def layout_preview(canvas: tk.Canvas, box: tuple[int, int] | None = None) -> Non
     canvas.create_image(0, 0, image=fitted, anchor="nw")
 
 
-def _preview_pane(parent: ttk.Frame, title: str, hint: str,
-                  empty: str = "点「预览一帧」确认视场") -> tuple[tk.Canvas, tk.Label]:
+def _preview_pane(parent: ttk.Frame, title: str, hint: str = "",
+                  empty: str = "无画面") -> tuple[tk.Canvas, tk.Label]:
     head = ttk.Frame(parent, style="CardBody.TFrame")
-    head.pack(fill="x")
+    head.pack(fill="x", pady=(0, 8))
     ttk.Label(head, text=title, style="CardTitle.TLabel").pack(side="left")
     badge = _pill(head, "待预览")
     badge.pack(side="right")
-    ttk.Label(parent, text=hint, style="Hint.TLabel", wraplength=280).pack(
-        anchor="w", pady=(2, 8))
-    holder = tk.Frame(parent, background=SURFACE, highlightthickness=0, borderwidth=0)
+    holder = tk.Frame(parent, background=PREVIEW, highlightthickness=0, borderwidth=0)
     holder.pack(fill="both", expand=True)
     canvas = tk.Canvas(holder, width=300, height=225, background=PREVIEW,
                        highlightthickness=0, borderwidth=0)
@@ -252,9 +234,9 @@ def _preview_pane(parent: ttk.Frame, title: str, hint: str,
 
 def build_ui(app: Any) -> None:
     _styles(app)
-    app.title("Capture Studio · 数据集采集")
-    app.geometry("1120x740")
-    app.minsize(960, 650)
+    app.title("Capture Studio")
+    app.geometry("1280x800")
+    app.minsize(1020, 680)
 
     app.output_var = tk.StringVar(value="captures")
     app.ffmpeg_var = tk.StringVar()
@@ -291,15 +273,15 @@ def build_ui(app: Any) -> None:
             setattr(app, f"board_{item.name}", tk.StringVar())
     app.lab_auto_watch = tk.BooleanVar(value=True)
     app.lab_auto_preview = tk.BooleanVar(value=True)
-    app.lab_board_var = tk.StringVar(value="开发板：还没连上")
-    app.lab_camera_var = tk.StringVar(value="摄像头：还没认出")
-    app.lab_step_var = tk.StringVar(value="第 1 步：把开发板网线插上。保存过密钥后，插上就会自动连。")
-    app.lab_watch_var = tk.StringVar(value="正在等待开发板和摄像头")
+    app.lab_board_var = tk.StringVar(value="开发板未连接")
+    app.lab_camera_var = tk.StringVar(value="未发现摄像头")
+    app.lab_step_var = tk.StringVar(value="")
+    app.lab_watch_var = tk.StringVar(value="")
     app.lab_camera_pick = tk.StringVar()
-    app.lab_support_var = tk.StringVar(value="还没读取。留空的项目不会改摄像头自己的数值。")
-    app.board_session_var = tk.StringVar(value="板端尚无活动会话")
-    app.board_metrics_var = tk.StringVar(value="首次使用请填入地址和令牌")
-    app.status_var = tk.StringVar(value="就绪 · 插上开发板和摄像头后会自动识别")
+    app.lab_support_var = tk.StringVar(value="")
+    app.board_session_var = tk.StringVar(value="")
+    app.board_metrics_var = tk.StringVar(value="")
+    app.status_var = tk.StringVar(value="就绪")
     app.remote_session = tk.StringVar()
 
     shell = ttk.Frame(app, style="App.TFrame", padding=(12, 4, 12, 2))
@@ -308,17 +290,15 @@ def build_ui(app: Any) -> None:
     shell.rowconfigure(2, weight=1)
     shell.rowconfigure(3, minsize=32)
 
-    header = tk.Frame(shell, background=PREVIEW)
-    header.grid(row=0, column=0, sticky="ew")
-    title_row = tk.Frame(header, background=PREVIEW)
-    title_row.pack(fill="x", padx=16, pady=(6, 5))
-    tk.Label(title_row, text="数据集采集", background=PREVIEW, foreground=PREVIEW_INK,
-             font=(FONT, 16, "bold")).pack(side="left")
-    tk.Label(title_row, text="Capture Studio", background=PREVIEW, foreground="#9EC4CB",
-             font=(FONT, 10)).pack(side="right")
-    rule = tk.Frame(header, background=ACCENT, height=2)
+    header = tk.Frame(shell, background=BG)
+    header.grid(row=0, column=0, sticky="ew", pady=(8, 0))
+    title_row = tk.Frame(header, background=BG)
+    title_row.pack(fill="x")
+    tk.Label(title_row, text="Capture Studio", background=BG, foreground=INK,
+             font=(FONT, 16)).pack(side="left")
+    rule = tk.Frame(header, background=LINE, height=1)
     rule.pack_propagate(False)
-    rule.pack(fill="x")
+    rule.pack(fill="x", pady=(10, 0))
 
     common = _card(shell, padx=14, pady=6)
     common.grid(row=1, column=0, sticky="ew", pady=(4, 4))
@@ -361,16 +341,12 @@ def build_ui(app: Any) -> None:
     _build_review(app)
     _build_settings(app)
 
-    footer = tk.Frame(shell, background=BG, height=32)
+    footer = tk.Frame(shell, background=BG, height=28)
     app.footer = footer
-    footer.grid(row=3, column=0, sticky="ew", pady=(4, 0))
+    footer.grid(row=3, column=0, sticky="ew", pady=(6, 2))
     footer.pack_propagate(False)
-    dot = tk.Canvas(footer, width=8, height=8, background=BG, highlightthickness=0)
-    dot.create_oval(0, 0, 8, 8, fill=GOOD, outline=GOOD)
-    dot.pack(side="left", padx=(4, 8), pady=12)
     app.status_label = ttk.Label(footer, textvariable=app.status_var, style="Footer.TLabel")
-    app.status_label.pack(side="left", fill="x", expand=True, pady=5)
-    ttk.Label(footer, text="本地优先", style="Footer.TLabel").pack(side="right", padx=(8, 2))
+    app.status_label.pack(side="left", fill="x", expand=True, pady=4)
     app.protocol("WM_DELETE_WINDOW", app._close)
     update_duration(app)
     refresh_controls(app)
@@ -379,8 +355,8 @@ def build_ui(app: Any) -> None:
 def _mode_body(tab: ttk.Frame) -> tuple[ttk.Frame, ttk.Frame]:
     body = ttk.Frame(tab, style="App.TFrame", padding=(0, 4, 0, 0))
     body.pack(fill="both", expand=True)
-    body.columnconfigure(0, weight=5)
-    body.columnconfigure(1, weight=4)
+    body.columnconfigure(0, weight=4)
+    body.columnconfigure(1, weight=6)
     body.rowconfigure(0, weight=1)
     left = _card(body, padx=12, pady=4)
     left.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
@@ -416,8 +392,8 @@ def _scroll_form(parent: ttk.Frame) -> ttk.Frame:
 def _build_lab(app: Any) -> None:
     body = ttk.Frame(app.lab_tab, style="App.TFrame", padding=(0, 4, 0, 0))
     body.pack(fill="both", expand=True)
-    body.columnconfigure(0, weight=6)
-    body.columnconfigure(1, weight=4)
+    body.columnconfigure(0, weight=4)
+    body.columnconfigure(1, weight=6)
     body.rowconfigure(0, weight=1)
     left_host = ttk.Frame(body, style="App.TFrame")
     left_host.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
@@ -425,40 +401,30 @@ def _build_lab(app: Any) -> None:
     form.columnconfigure(0, weight=1)
     form.columnconfigure(1, weight=1)
     ttk.Label(form, text="摄像头测试", style="CardTitle.TLabel").grid(
-        row=0, column=0, columnspan=2, sticky="w")
-    ttk.Label(form, text="插上开发板和摄像头后会自动认出。留空的数字表示不改。",
-              style="Hint.TLabel", wraplength=460).grid(
-                  row=1, column=0, columnspan=2, sticky="w", pady=(2, 2))
-    ttk.Label(form, textvariable=app.lab_step_var, style="Card.TLabel",
-              wraplength=460).grid(row=2, column=0, columnspan=2, sticky="w")
+        row=0, column=0, columnspan=2, sticky="w", pady=(0, 8))
     ttk.Label(form, textvariable=app.lab_board_var, style="Card.TLabel",
-              wraplength=460).grid(row=3, column=0, columnspan=2, sticky="w", pady=(4, 0))
+              wraplength=460).grid(row=1, column=0, columnspan=2, sticky="w")
     ttk.Label(form, textvariable=app.lab_camera_var, style="Card.TLabel",
-              wraplength=460).grid(row=4, column=0, columnspan=2, sticky="w")
-    ttk.Label(form, textvariable=app.lab_watch_var, style="Hint.TLabel").grid(
-        row=5, column=0, columnspan=2, sticky="w", pady=(0, 4))
+              wraplength=460).grid(row=2, column=0, columnspan=2, sticky="w")
+    ttk.Label(form, textvariable=app.lab_watch_var, style="Hint.TLabel",
+              wraplength=460).grid(row=3, column=0, columnspan=2, sticky="w", pady=(2, 6))
     watch = ttk.Frame(form, style="CardBody.TFrame")
-    watch.grid(row=6, column=0, columnspan=2, sticky="w")
-    ttk.Checkbutton(watch, text="插上后自动识别", variable=app.lab_auto_watch).pack(side="left")
-    ttk.Checkbutton(watch, text="认出后自动看画面", variable=app.lab_auto_preview).pack(
+    watch.grid(row=4, column=0, columnspan=2, sticky="w")
+    ttk.Checkbutton(watch, text="自动识别", variable=app.lab_auto_watch).pack(side="left")
+    ttk.Checkbutton(watch, text="自动预览", variable=app.lab_auto_preview).pack(
         side="left", padx=(12, 0))
-    ttk.Button(watch, text="马上识别", command=app._identify_now,
+    ttk.Button(watch, text="识别", command=app._identify_now,
                style="Quiet.TButton").pack(side="left", padx=(12, 0))
-    ttk.Button(watch, text="连接设置", command=app._configure_board,
+    ttk.Button(watch, text="连接", command=app._configure_board,
                style="Quiet.TButton").pack(side="left", padx=(6, 0))
 
-    ttk.Label(form, text="要测的摄像头", style="Field.TLabel").grid(
-        row=7, column=0, columnspan=2, sticky="w", pady=(8, 0))
+    ttk.Label(form, text="摄像头", style="Field.TLabel").grid(
+        row=5, column=0, columnspan=2, sticky="w", pady=(12, 0))
     app.lab_camera_box = ttk.Combobox(form, textvariable=app.lab_camera_pick, state="readonly")
-    app.lab_camera_box.grid(row=8, column=0, columnspan=2, sticky="ew")
-    ttk.Label(form, textvariable=app.pc_current_var, style="Hint.TLabel",
-              wraplength=460).grid(row=9, column=0, columnspan=2, sticky="w", pady=(2, 0))
-    ttk.Label(form, text="若上一行出现电脑摄像头，说明线插在电脑上。调参请插到开发板。",
-              style="Hint.TLabel", wraplength=460).grid(
-                  row=10, column=0, columnspan=2, sticky="w")
+    app.lab_camera_box.grid(row=6, column=0, columnspan=2, sticky="ew")
 
     picture = ttk.Frame(form, style="CardBody.TFrame")
-    picture.grid(row=11, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+    picture.grid(row=7, column=0, columnspan=2, sticky="ew", pady=(12, 0))
     for index in range(4):
         picture.columnconfigure(index, weight=1)
     ttk.Label(picture, text="分辨率", style="Field.TLabel").grid(row=0, column=0, sticky="w")
@@ -471,20 +437,17 @@ def _build_lab(app: Any) -> None:
         ttk.Entry(picture, textvariable=variable, width=6).grid(
             row=1, column=index, sticky="ew", padx=(0, 8))
     ttk.Label(form, text="格式", style="Field.TLabel").grid(
-        row=12, column=0, sticky="w", pady=(6, 0))
+        row=8, column=0, sticky="w", pady=(8, 0))
     ttk.Combobox(form, textvariable=app.board_format, state="readonly",
-                 values=("mjpeg", "raw")).grid(row=13, column=0, sticky="ew", padx=(0, 8))
-    ttk.Label(form, text="多数摄像头先用 mjpeg、640×480、30 帧。raw 文件更大。",
-              style="Hint.TLabel", wraplength=460).grid(
-                  row=14, column=0, columnspan=2, sticky="w")
+                 values=("mjpeg", "raw")).grid(row=9, column=0, sticky="ew", padx=(0, 8))
 
     app.lab_entries = {}
     app.lab_range_vars = {}
     numbers = ttk.Frame(form, style="CardBody.TFrame")
-    numbers.grid(row=15, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+    numbers.grid(row=10, column=0, columnspan=2, sticky="ew", pady=(12, 0))
     numbers.columnconfigure(0, weight=1)
     numbers.columnconfigure(1, weight=1)
-    ttk.Label(numbers, text="亮暗、颜色、对焦", style="Field.TLabel").grid(
+    ttk.Label(numbers, text="图像", style="Field.TLabel").grid(
         row=0, column=0, columnspan=2, sticky="w")
     integers = [item for item in TUNING if item.kind == "int" and item.name not in {
         "white_balance_temperature", "focus_absolute"}]
@@ -504,7 +467,7 @@ def _build_lab(app: Any) -> None:
         ("对焦", app.board_focus, AUTO_MANUAL_CHOICES, "focus_auto"),
     )
     combo_row = ttk.Frame(form, style="CardBody.TFrame")
-    combo_row.grid(row=16, column=0, columnspan=2, sticky="ew", pady=(6, 0))
+    combo_row.grid(row=11, column=0, columnspan=2, sticky="ew", pady=(8, 0))
     for index, (label, variable, choices, name) in enumerate(specials):
         combo_row.columnconfigure(index, weight=1)
         ttk.Label(combo_row, text=label, style="Field.TLabel").grid(
@@ -515,7 +478,7 @@ def _build_lab(app: Any) -> None:
         app.lab_entries[name] = box
         app.lab_range_vars[name] = tk.StringVar(value=TUNING_HINT[name])
     pair = ttk.Frame(form, style="CardBody.TFrame")
-    pair.grid(row=17, column=0, columnspan=2, sticky="ew", pady=(4, 0))
+    pair.grid(row=12, column=0, columnspan=2, sticky="ew", pady=(8, 0))
     pair.columnconfigure(0, weight=1)
     pair.columnconfigure(1, weight=1)
     for index, name in enumerate(("white_balance_temperature", "focus_absolute")):
@@ -529,37 +492,32 @@ def _build_lab(app: Any) -> None:
         app.lab_entries[name] = entry
         app.lab_range_vars[name] = tk.StringVar(value=item.hint)
     ttk.Label(form, textvariable=app.lab_support_var, style="Hint.TLabel",
-              wraplength=460).grid(row=18, column=0, columnspan=2, sticky="w", pady=(6, 0))
+              wraplength=460).grid(row=13, column=0, columnspan=2, sticky="w", pady=(8, 0))
     tools = ttk.Frame(form, style="CardBody.TFrame")
-    tools.grid(row=19, column=0, columnspan=2, sticky="ew", pady=(8, 0))
-    ttk.Button(tools, text="按这个参数看画面", command=app._apply_lab,
+    tools.grid(row=14, column=0, columnspan=2, sticky="ew", pady=(12, 0))
+    ttk.Button(tools, text="应用并预览", command=app._apply_lab,
                style="Primary.TButton").pack(side="left", padx=(0, 6))
-    ttk.Button(tools, text="读出这只能调什么", command=app._read_lab_controls,
+    ttk.Button(tools, text="读取参数", command=app._read_lab_controls,
                style="Secondary.TButton").pack(side="left", padx=(0, 6))
-    ttk.Button(tools, text="填入当前数值", command=app._fill_lab_controls,
+    ttk.Button(tools, text="填入当前", command=app._fill_lab_controls,
                style="Quiet.TButton").pack(side="left")
     more = ttk.Frame(form, style="CardBody.TFrame")
-    more.grid(row=20, column=0, columnspan=2, sticky="ew", pady=(6, 0))
+    more.grid(row=15, column=0, columnspan=2, sticky="ew", pady=(8, 8))
     ttk.Button(more, text="室内日光灯", command=app._lab_fluorescent,
                style="Secondary.TButton").pack(side="left", padx=(0, 6))
-    ttk.Button(more, text="数字留空", command=app._clear_lab_tuning,
+    ttk.Button(more, text="清空", command=app._clear_lab_tuning,
                style="Quiet.TButton").pack(side="left", padx=(0, 6))
     app.lab_short_button = ttk.Button(more, text="录 60 秒并检查", command=app._lab_short,
                                       style="Primary.TButton")
     app.lab_short_button.pack(side="left")
-    ttk.Label(form, text="短检会停掉预览，录一分钟，再把文件取回并检查。",
-              style="Hint.TLabel", wraplength=460).grid(
-                  row=21, column=0, columnspan=2, sticky="w", pady=(6, 8))
 
     preview_parent = _card(body, padx=12, pady=4)
     preview_parent.grid(row=0, column=1, sticky="nsew")
-    app.lab_preview_canvas, app.lab_badge = _preview_pane(
-        preview_parent, "测试画面", "预览不写入数据集。开始短检前会先停掉预览。",
-        empty="插上后会自动出现画面")
+    app.lab_preview_canvas, app.lab_badge = _preview_pane(preview_parent, "画面")
     app.lab_badge.configure(text="未连接")
-    ttk.Button(preview_parent, text="大屏看画面", command=app._open_large_view,
+    ttk.Button(preview_parent, text="大屏", command=app._open_large_view,
                style="Secondary.TButton").pack(anchor="w", pady=(8, 0))
-    app.lab_metrics_var = tk.StringVar(value="实际取流帧率：—")
+    app.lab_metrics_var = tk.StringVar(value="")
     ttk.Label(preview_parent, textvariable=app.lab_metrics_var, style="Card.TLabel",
               wraplength=300).pack(anchor="w", pady=(8, 2))
     ttk.Label(preview_parent, textvariable=app.board_session_var, style="Card.TLabel",
@@ -595,9 +553,9 @@ def paint_lab_support(app: Any, controls: list[dict] | None, error: str = "") ->
     if error:
         app.lab_support_var.set(error)
     elif not controls:
-        app.lab_support_var.set("没有读到可调项目，仍可按常用范围手填。留空表示不改。")
+        app.lab_support_var.set("未读到可调项")
     else:
-        app.lab_support_var.set("已读出这只摄像头的项目。没有的项已停用。留空仍表示不改。")
+        app.lab_support_var.set("已读取，没有的项已停用")
     app.lab_controls = controls or []
     found = support_for(app.lab_controls) if controls else {}
     app.lab_support = found
@@ -619,8 +577,7 @@ def paint_lab_support(app: Any, controls: list[dict] | None, error: str = "") ->
             "power_line_frequency", "white_balance_auto", "focus_auto"} else "normal"
         widget.configure(state=kind)
         if hint is not None and item.get("min") is not None and item.get("max") is not None:
-            current = item.get("value")
-            hint.set(f"当前 {current}，可填 {item['min']}–{item['max']}，留空不改")
+            hint.set(f"{item['min']}–{item['max']}")
     update_lab_dependents(app)
 
 
@@ -628,34 +585,29 @@ def _build_pc(app: Any) -> None:
     left, preview_parent = _mode_body(app.pc_tab)
     left.columnconfigure(0, weight=1)
     left.columnconfigure(1, weight=1)
-    ttk.Label(left, text="电脑直连 USB 摄像头", style="CardTitle.TLabel").grid(
-        row=0, column=0, columnspan=2, sticky="w")
-    ttk.Label(left, text="先确认设备和画面，再开始保存采集文件。", style="Hint.TLabel").grid(
-        row=1, column=0, columnspan=2, sticky="w", pady=(2, 2))
-    ttk.Label(left, text="摄像头", style="Field.TLabel").grid(row=2, column=0, sticky="w", pady=(4, 1))
+    ttk.Label(left, text="电脑采集", style="CardTitle.TLabel").grid(
+        row=0, column=0, columnspan=2, sticky="w", pady=(0, 8))
+    ttk.Label(left, text="摄像头", style="Field.TLabel").grid(row=1, column=0, sticky="w")
     ttk.Label(left, textvariable=app.pc_scan_var, style="Hint.TLabel").grid(
-        row=2, column=1, sticky="e", pady=(4, 1))
+        row=1, column=1, sticky="e")
     device_row = ttk.Frame(left, style="CardBody.TFrame")
-    device_row.grid(row=3, column=0, columnspan=2, sticky="ew")
+    device_row.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(2, 0))
     app.pc_device_box = ttk.Combobox(device_row, textvariable=app.pc_device)
     app.pc_device_box.pack(side="left", fill="x", expand=True)
-    ttk.Button(device_row, text="刷新设备", command=app._list_local_devices,
+    ttk.Button(device_row, text="刷新", command=app._list_local_devices,
                style="Quiet.TButton").pack(side="left", padx=(6, 0))
 
     dimensions = ttk.Frame(left, style="CardBody.TFrame")
-    dimensions.grid(row=4, column=0, columnspan=2, sticky="ew", pady=(2, 0))
+    dimensions.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(8, 0))
     for index, (label, variable) in enumerate((
-        ("宽度", app.pc_width), ("高度", app.pc_height), ("帧率 FPS", app.pc_fps)
+        ("宽", app.pc_width), ("高", app.pc_height), ("帧率", app.pc_fps)
     )):
         dimensions.columnconfigure(index, weight=1)
         _field(dimensions, 0, index, label, variable)
-    _field(left, 3, 0, "保存编码", app.pc_codec,
+    _field(left, 2, 0, "编码", app.pc_codec,
            choices=("ffv1", "copy", "mjpeg"), readonly=True)
-    ttk.Label(left, text="FFV1 保存解码帧且占用空间较大；copy 仅适用于可直接封装的压缩流。",
-              style="Hint.TLabel", wraplength=420).grid(
-                  row=8, column=0, columnspan=2, sticky="w", pady=(4, 0))
     actions = ttk.Frame(left, style="CardBody.TFrame")
-    actions.grid(row=9, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+    actions.grid(row=6, column=0, columnspan=2, sticky="ew", pady=(12, 0))
     ttk.Button(actions, text="预览一帧", command=app._preview_local,
                style="Secondary.TButton").pack(side="left", padx=(0, 6))
     app.pc_start_button = ttk.Button(actions, text="开始采集", command=app._start_local,
@@ -665,12 +617,11 @@ def _build_pc(app: Any) -> None:
                                     style="Quiet.TButton")
     app.pc_stop_button.pack(side="left")
 
-    app.pc_preview_canvas, app.pc_badge = _preview_pane(
-        preview_parent, "画面确认", "预览只取一帧，不会写入数据集。")
+    app.pc_preview_canvas, app.pc_badge = _preview_pane(preview_parent, "画面")
     ttk.Label(preview_parent, textvariable=app.pc_current_var,
-              style="Card.TLabel", wraplength=300).pack(anchor="w", pady=(8, 2))
-    app.pc_session_var = tk.StringVar(value="尚无采集会话")
-    app.pc_metrics_var = tk.StringVar(value="预览后可开始录制")
+              style="Card.TLabel", wraplength=420).pack(anchor="w", pady=(8, 2))
+    app.pc_session_var = tk.StringVar(value="")
+    app.pc_metrics_var = tk.StringVar(value="")
     ttk.Label(preview_parent, textvariable=app.pc_session_var,
               style="Card.TLabel", wraplength=300).pack(anchor="w")
     ttk.Label(preview_parent, textvariable=app.pc_metrics_var,
@@ -681,15 +632,13 @@ def _build_board(app: Any) -> None:
     left, preview_parent = _mode_body(app.board_tab)
     left.columnconfigure(0, weight=1)
     left.columnconfigure(1, weight=1)
-    ttk.Label(left, text="KV260 直连 USB 摄像头", style="CardTitle.TLabel").grid(
+    ttk.Label(left, text="KV260 采集", style="CardTitle.TLabel").grid(
         row=0, column=0, sticky="w")
-    ttk.Button(left, text="连接设置", command=app._configure_board,
+    ttk.Button(left, text="连接", command=app._configure_board,
                style="Quiet.TButton").grid(row=0, column=1, sticky="e")
-    ttk.Label(left, text="板端保存视频；停止后校验并取回电脑。", style="Hint.TLabel").grid(
-        row=1, column=0, columnspan=2, sticky="w", pady=(2, 0))
-    _field(left, 1, 0, "KV260 地址", app.board_url)
-    _field(left, 1, 1, "连接令牌", app.board_token, show="•")
-    ttk.Label(left, text="板端视频设备", style="Field.TLabel").grid(
+    _field(left, 1, 0, "地址", app.board_url)
+    _field(left, 1, 1, "令牌", app.board_token, show="•")
+    ttk.Label(left, text="设备", style="Field.TLabel").grid(
         row=4, column=0, sticky="w", pady=(2, 0))
     ttk.Label(left, textvariable=app.board_scan_var, style="Hint.TLabel").grid(
         row=4, column=1, sticky="e", pady=(2, 0))
@@ -697,22 +646,22 @@ def _build_board(app: Any) -> None:
     device_row.grid(row=5, column=0, columnspan=2, sticky="ew")
     app.board_device_box = ttk.Combobox(device_row, textvariable=app.board_device)
     app.board_device_box.pack(side="left", fill="x", expand=True)
-    ttk.Button(device_row, text="刷新设备", command=app._list_board_devices,
+    ttk.Button(device_row, text="刷新", command=app._list_board_devices,
                style="Quiet.TButton").pack(side="left", padx=(6, 0))
     dimensions = ttk.Frame(left, style="CardBody.TFrame")
     dimensions.grid(row=6, column=0, columnspan=2, sticky="ew")
     for index, (label, variable) in enumerate((
-        ("宽度", app.board_width), ("高度", app.board_height), ("帧率 FPS", app.board_fps)
+        ("宽", app.board_width), ("高", app.board_height), ("帧率", app.board_fps)
     )):
         dimensions.columnconfigure(index, weight=1)
         _field(dimensions, 0, index, label, variable)
-    _field(left, 4, 0, "摄像头格式", app.board_format, choices=("mjpeg", "raw"), readonly=True)
-    app.board_bitrate_entry = _field(left, 4, 1, "H.264 码率 kb/s", app.board_bitrate)
+    _field(left, 4, 0, "格式", app.board_format, choices=("mjpeg", "raw"), readonly=True)
+    app.board_bitrate_entry = _field(left, 4, 1, "码率 kb/s", app.board_bitrate)
     app.board_preset = tk.StringVar(value="看清画面")
     app.board_preset_note = tk.StringVar(value=EXPOSURE_PRESETS["看清画面"][2])
     app.board_exposure_mode = tk.StringVar(value="自动")
     app.board_exposure_absolute = tk.StringVar(value="")
-    ttk.Label(left, text="怎么拍", style="Field.TLabel").grid(
+    ttk.Label(left, text="曝光", style="Field.TLabel").grid(
         row=10, column=0, columnspan=2, sticky="w", pady=(4, 0))
     preset_row = ttk.Frame(left, style="CardBody.TFrame")
     preset_row.grid(row=11, column=0, columnspan=2, sticky="ew")
@@ -744,11 +693,11 @@ def _build_board(app: Any) -> None:
     app.board_exposure_entry.pack(side="left", padx=(6, 0))
     tools = ttk.Frame(left, style="CardBody.TFrame")
     tools.grid(row=14, column=0, columnspan=2, sticky="ew", pady=(4, 0))
-    ttk.Button(tools, text="自动连接/查设备", command=app._connect_board,
+    ttk.Button(tools, text="连接", command=app._connect_board,
                style="Quiet.TButton").pack(side="left", padx=(0, 6))
-    ttk.Button(tools, text="预览一帧", command=app._preview_board,
+    ttk.Button(tools, text="预览", command=app._preview_board,
                style="Secondary.TButton").pack(side="left", padx=(0, 6))
-    app.board_live_button = ttk.Button(tools, text="实时预览", command=app._live_board,
+    app.board_live_button = ttk.Button(tools, text="实时", command=app._live_board,
                                       style="Secondary.TButton")
     app.board_live_button.pack(side="left")
     actions = ttk.Frame(left, style="CardBody.TFrame")
@@ -760,12 +709,11 @@ def _build_board(app: Any) -> None:
                                        style="Quiet.TButton")
     app.board_stop_button.pack(side="left")
 
-    app.board_preview_canvas, app.board_badge = _preview_pane(
-        preview_parent, "板端画面", "预览和采集用同一种拍法。开始采集会先停掉预览。")
+    app.board_preview_canvas, app.board_badge = _preview_pane(preview_parent, "画面")
     app.board_badge.configure(text="未连接")
-    ttk.Button(preview_parent, text="大屏看画面", command=app._open_large_view,
+    ttk.Button(preview_parent, text="大屏", command=app._open_large_view,
                style="Secondary.TButton").pack(anchor="w", pady=(8, 0))
-    app.board_live_metrics_var = tk.StringVar(value="实际取流帧率：— · 预览输出：—")
+    app.board_live_metrics_var = tk.StringVar(value="")
     ttk.Label(preview_parent, textvariable=app.board_live_metrics_var,
               style="Card.TLabel", wraplength=300).pack(anchor="w", pady=(8, 2))
     ttk.Label(preview_parent, textvariable=app.board_current_var,
@@ -789,10 +737,8 @@ def _build_review(app: Any) -> None:
     outer.rowconfigure(0, weight=1)
     left = _card(outer, padx=14, pady=10)
     left.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
-    ttk.Label(left, text="取回板端会话", style="CardTitle.TLabel").pack(anchor="w")
-    ttk.Label(left, text="网络中断后可按会话 ID 继续取回。", style="Hint.TLabel").pack(
-        anchor="w", pady=(2, 8))
-    ttk.Entry(left, textvariable=app.remote_session).pack(fill="x", pady=(0, 6))
+    ttk.Label(left, text="取回", style="CardTitle.TLabel").pack(anchor="w", pady=(0, 8))
+    ttk.Entry(left, textvariable=app.remote_session).pack(fill="x", pady=(0, 8))
     row = ttk.Frame(left, style="CardBody.TFrame")
     row.pack(anchor="w", pady=(0, 8))
     ttk.Button(row, text="板端", width=4, command=app._list_board_sessions,
@@ -813,10 +759,8 @@ def _build_review(app: Any) -> None:
 
     right = _card(outer, padx=14, pady=10)
     right.grid(row=0, column=1, sticky="nsew")
-    ttk.Label(right, text="校验与活动记录", style="CardTitle.TLabel").pack(anchor="w")
-    ttk.Label(right, text="完整性、帧率、画面、收尾分开显示。四关都通过才可入库。",
-              style="Hint.TLabel", wraplength=420).pack(anchor="w", pady=(2, 8))
-    app.gates_var = tk.StringVar(value="校验后显示四关")
+    ttk.Label(right, text="校验", style="CardTitle.TLabel").pack(anchor="w", pady=(0, 8))
+    app.gates_var = tk.StringVar(value="未校验")
     gate_row = ttk.Frame(right, style="CardBody.TFrame")
     gate_row.pack(fill="x")
     app.gate_labels = {}
@@ -828,15 +772,14 @@ def _build_review(app: Any) -> None:
     verdict_row.pack(fill="x", pady=(0, 8))
     app.verdict_label = _pill(verdict_row, "", variable=app.gates_var)
     app.verdict_label.pack(side="right")
-    ttk.Button(right, text="选择本地会话并校验", command=app._audit_chosen,
+    ttk.Button(right, text="校验本地会话", command=app._audit_chosen,
                style="Secondary.TButton").pack(anchor="w", pady=(0, 8))
-    log_wrap = tk.Frame(right, background="#F4F8F8")
+    log_wrap = tk.Frame(right, background=SURFACE, highlightbackground=LINE, highlightthickness=1)
     log_wrap.pack(fill="both", expand=True)
     app.log_text = tk.Text(log_wrap, height=5, wrap="word", state="normal",
-                           background="#F4F8F8", foreground=INK, relief="flat",
-                           padx=10, pady=8, borderwidth=0, font=(FONT, 9),
+                           background=SURFACE, foreground=INK, relief="flat",
+                           padx=10, pady=8, borderwidth=0, font=(FONT, 10),
                            insertbackground=INK)
-    app.log_text.insert("end", "操作记录会显示在这里。\n")
     app.log_text.configure(state="disabled")
     app.log_text.pack(fill="both", expand=True)
 
@@ -845,11 +788,9 @@ def _build_settings(app: Any) -> None:
     card = _card(app.settings_tab, padx=14, pady=10)
     card.pack(fill="x", pady=(8, 0))
     card.columnconfigure(0, weight=1)
-    ttk.Label(card, text="采集工具", style="CardTitle.TLabel").grid(row=0, column=0, sticky="w")
-    ttk.Label(card, text="便携包已内置 FFmpeg 和 FFprobe。只在需要替换版本时填写路径。",
-              style="Hint.TLabel").grid(row=1, column=0, sticky="w", pady=(2, 2))
-    _field(card, 1, 0, "FFmpeg 路径", app.ffmpeg_var)
-    _field(card, 2, 0, "FFprobe 路径", app.ffprobe_var)
+    ttk.Label(card, text="工具", style="CardTitle.TLabel").grid(row=0, column=0, sticky="w", pady=(0, 8))
+    _field(card, 1, 0, "FFmpeg", app.ffmpeg_var)
+    _field(card, 2, 0, "FFprobe", app.ffprobe_var)
     ttk.Button(card, text="检查工具", command=app._check_tools,
                style="Secondary.TButton").grid(row=6, column=0, sticky="w", pady=(8, 0))
     tip = _card(app.settings_tab, padx=14, pady=10)
@@ -857,10 +798,8 @@ def _build_settings(app: Any) -> None:
     tip.columnconfigure(0, weight=1)
     tip.columnconfigure(1, weight=1)
     tip.columnconfigure(2, weight=1)
-    ttk.Label(tip, text="随会话保存", style="CardTitle.TLabel").grid(
-        row=0, column=0, columnspan=3, sticky="w")
-    ttk.Label(tip, text="镜头、光照和距离写入每一次采集。换电脑后重新选择摄像头；连接令牌不保存。",
-              style="Hint.TLabel").grid(row=1, column=0, columnspan=3, sticky="w", pady=(2, 2))
+    ttk.Label(tip, text="会话记录", style="CardTitle.TLabel").grid(
+        row=0, column=0, columnspan=3, sticky="w", pady=(0, 8))
     _field(tip, 1, 0, "镜头", app.lens_var)
     _field(tip, 1, 1, "光照", app.light_var)
     _field(tip, 1, 2, "距离", app.distance_var)
@@ -971,7 +910,7 @@ class LargePreview:
         self._center_next = False
         self._drag: tuple[int, int, int, int] | None = None
         window = tk.Toplevel(app)
-        window.title("大屏看画面")
+        window.title("大屏")
         window.geometry("1280x800")
         window.minsize(800, 500)
         try:
@@ -979,11 +918,13 @@ class LargePreview:
         except tk.TclError:
             pass
         self.window = window
-        bar = tk.Frame(window, background=SURFACE)
+        bar = tk.Frame(window, background=BG)
         bar.pack(fill="x")
-        tk.Label(bar, text="滚轮放大，按住拖动。Esc 关闭。画面按采集分辨率送来，不是先缩成小图再拉大。",
-                 background=SURFACE, foreground=INK, font=(FONT, 10)).pack(side="left", padx=12, pady=8)
-        tk.Button(bar, text="关闭", command=self.close).pack(side="right", padx=12, pady=6)
+        tk.Label(bar, text="滚轮放大    拖动平移    Esc 关闭",
+                 background=BG, foreground=MUTED, font=(FONT, 10)).pack(side="left", padx=16, pady=10)
+        tk.Button(bar, text="关闭", command=self.close, relief="flat",
+                  background=BG, foreground=INK, activebackground="#EEF0F3",
+                  font=(FONT, 10), padx=12, pady=4).pack(side="right", padx=12, pady=6)
         self.canvas = tk.Canvas(window, background=PREVIEW, highlightthickness=0, borderwidth=0)
         self.canvas.pack(fill="both", expand=True)
         self.canvas.bind("<Configure>", lambda _event: self.redraw())
