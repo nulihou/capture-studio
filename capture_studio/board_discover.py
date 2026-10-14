@@ -141,22 +141,27 @@ def resolve_kria() -> list[str]:
     return sorted(ip for ip in {item[4][0] for item in infos} if not ignored_address(ip))
 
 
+def pick_from_discovery(found: list[dict]) -> tuple[str, str]:
+    """Single board -> select it; otherwise only a single SSH host is auto-selected."""
+    boards = [r["host"] for r in found if r.get("kind") == "board"]
+    if len(boards) == 1:
+        tag = next(r for r in found if r["host"] == boards[0])
+        return boards[0], f"已找到开发板 {boards[0]}" + (f"（{tag['vendor']}）" if tag.get("vendor") else "") + "。"
+    if len(boards) > 1:
+        return "", "找到多块开发板：" + "、".join(boards[:6]) + "。请填写新板的地址。"
+    hosts = [r["host"] for r in found if r.get("kind") != "pc"] or [r["host"] for r in found]
+    if len(hosts) == 1:
+        return hosts[0], f"只找到一台开着 SSH 的设备 {hosts[0]}。若不是新开发板，请改地址。"
+    if hosts:
+        return "", "找到多台开着 SSH 的设备：" + "、".join(hosts[:6]) + "。请填写新板的地址。"
+    return "", "没有找到开发板。请确认新板已联网，或直接填写它的 IP。"
+
+
 def find_board() -> tuple[str, str]:
-    flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
-    config = subprocess.run(["ipconfig"], capture_output=True, timeout=10, creationflags=flags)
-    prefixes = prefixes_from_ipconfig(decode_console(config.stdout or b""))
-    own: set[str] = set()
-    try:
-        own.update(ip for ip in socket.gethostbyname_ex(socket.gethostname())[2] if not ignored_address(ip))
-    except OSError:
-        pass
-    targets = [f"{prefix}{host}" for prefix in prefixes[:2] for host in range(1, 255)
-               if f"{prefix}{host}" not in own]
-    open_hosts: set[str] = set()
-    if targets:
-        with ThreadPoolExecutor(max_workers=80) as pool:
-            for ip, opened in zip(targets, pool.map(probe_ssh, targets)):
-                if opened:
-                    open_hosts.add(ip)
-    arp = subprocess.run(["arp", "-a"], capture_output=True, timeout=10, creationflags=flags)
-    return choose_board_host(open_hosts, parse_arp(decode_console(arp.stdout or b"")), resolve_kria())
+    """v12: one discovery path for every caller (see discovery.py); no gateway requirement."""
+    from . import discovery
+    result = discovery.discover()
+    host, note = pick_from_discovery(result["found"])
+    if not host and result["guidance"]:
+        note += "像是网线直连：打开“连接向导”查看直连提示，或填写开发板 IP 后点“测试这个 IP”。"
+    return host, note

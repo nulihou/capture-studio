@@ -1,4 +1,6 @@
-"""LAN discovery for the first-run wizard (v7).
+"""v12: thin compatibility layer; the real discovery lives in discovery.py.
+
+LAN discovery for the first-run wizard (v7).
 
 Only a quick TCP connect to port 22 per address (plus reading the SSH banner the server sends
 unprompted).  No ping sweeps, no other ports, no authentication attempts.  Bounded: at most

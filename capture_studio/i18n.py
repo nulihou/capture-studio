@@ -480,3 +480,47 @@ _V11 = {"减少动态效果": "Reduce motion",
         "关闭页面淡入、状态渐变和折叠动画（Windows 关闭动画时自动生效）": "Turns off page fades, status cross-fades and collapse animations (automatic when Windows animations are off)"}
 UI.update({k: v for k, v in _V11.items() if k not in UI})
 MESSAGES.update({k: v for k, v in _V11.items() if k not in MESSAGES})
+
+_V12 = {
+    "扫描范围：每块真实网卡所在的 /24（最多 3 块），加上系统邻居表里已出现的地址和常见 .local 名称；只测 22 端口的 SSH 应答。不登录、不扫其他端口。":
+        "Scope: the /24 around each real network adapter (up to 3), plus addresses already in the system neighbour table and common .local names; only port 22 is checked for an SSH reply. No login, no other ports.",
+    "测试这个 IP": "Test this IP", "正在测试…": "Testing…", "开发板": "Board", "电脑 / 服务器": "PC / server",
+    "Linux 设备": "Linux device", "随机 MAC": "random MAC", "Dropbear (嵌入式)": "Dropbear (embedded)", "地址格式不对": "Invalid address",
+    "像是网线直连：打开“连接向导”查看直连提示，或填写开发板 IP 后点“测试这个 IP”。": "Looks like a direct cable: open the Connection wizard for direct-connect tips, or type the board IP and click Test this IP.",
+    "没有找到开发板。请确认新板已联网，或直接填写它的 IP。": "No board found. Check that the new board is on the network, or type its IP.",
+    "像是网线直连：打开“连接向导”查看直连提示，或填写开发板 IP 后点“测试这个 IP”。": "Looks like a direct cable: open the Connection wizard for direct-connect tips, or type the board IP and click Test this IP.",
+}
+UI.update({k: v for k, v in _V12.items() if k not in UI})
+MESSAGES.update({k: v for k, v in _V12.items() if k not in MESSAGES})
+_PATTERNS[:0] = [
+    (r"^(\S+) 有 SSH 应答：(.*)$", "{0} answers SSH: {1}"),
+    (r"^(\S+) 没有 SSH 应答（不在同一网段、没开机，或 SSH 没启动）$", "{0} gave no SSH reply (different subnet, powered off, or SSH not running)"),
+    (r"^有线网卡“(.+)”只有 169\.254 自动地址（(\S+)），像是网线直连且没有 DHCP。.*$",
+     "Wired adapter \"{0}\" has only a 169.254 auto address ({1}): looks like a direct cable without DHCP. A board that also uses 169.254 is found via the neighbour table and .local names; otherwise give this adapter a static IP in the board's subnet in Windows network settings (e.g. board 192.168.1.10 -> PC 192.168.1.20 / 255.255.255.0, no gateway), or type the board IP below and click Test this IP."),
+    (r"^有线网卡“(.+)”（(\S+)）没有默认网关，可能是直连。.*$",
+     "Wired adapter \"{0}\" ({1}) has no default gateway, probably a direct cable. Its /24 was scanned; if the board uses a static IP in another subnet, type it and click Test this IP."),
+    (r"^已找到开发板 (.+)。$", "Found board {0}"),
+    (r"^(.+。)(像是网线直连：.+)$", "{0} {1}"),
+    (r"^只找到一台开着 SSH 的设备 (\S+)。若不是新开发板，请改地址。$", "Only one SSH device found: {0}. Change the address if it is not the new board."),
+    (r"^找到多台开着 SSH 的设备：(.+)。请填写新板的地址。$", "Several SSH devices found: {0}. Enter the new board's address."),
+    (r"^找到多块开发板：(.+)。请填写新板的地址。$", "Several boards found: {0}. Enter the new board's address."),
+]
+
+_V12U = {
+    "启动时检查更新": "Check for updates at startup", "每天最多一次，在后台进行，不影响使用": "At most once a day, in the background",
+    "检查更新": "Updates", "正在检查更新…": "Checking for updates…", "检查更新失败": "Update check failed",
+    "下载": "Download", "关闭": "Close", "没有更新说明": "No release notes",
+    "下载后解压到新文件夹即可，旧版本和设置不会被改动。": "Unzip the download into a new folder; the current version and settings stay untouched.",
+    "GitHub 访问次数暂时用完，请一小时后再试": "GitHub rate limit reached, try again in an hour",
+    "还没有发布版本": "No release published yet", "代理需要登录，请检查系统代理设置": "The proxy requires authentication; check the system proxy settings",
+    "连接 GitHub 超时，请检查网络或代理": "Timed out reaching GitHub; check the network or proxy",
+    "代理连接失败，请检查系统代理设置": "Proxy connection failed; check the system proxy settings",
+    "无法连接 GitHub，请检查网络": "Cannot reach GitHub; check the network", "无法读取更新信息": "Could not read update information",
+}
+UI.update({k: v for k, v in _V12U.items() if k not in UI})
+MESSAGES.update({k: v for k, v in _V12U.items() if k not in MESSAGES})
+_PATTERNS[:0] = [
+    (r"^有新版本 v(\S+)，可在设置页下载$", "Version {0} is available; download it from Settings"),
+    (r"^有新版本 v(\S+)$", "New version {0}"), (r"^已是最新 v(\S+)$", "Up to date (v{0})"), (r"^当前 v(\S+)$", "Current v{0}"),
+    (r"^GitHub 返回错误 (\d+)$", "GitHub returned error {0}"),
+]

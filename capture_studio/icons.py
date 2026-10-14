@@ -22,7 +22,7 @@ ICONS = {'nav.lab': 'aperture', 'nav.pc': 'monitor', 'nav.board': 'circuit-board
 
 # Chinese source text of a button -> semantic icon (buttons are created from source text before tr()).
 BUTTON_ICONS = {
-    "连接": "act.connect", "保存并连接": "act.connect", "扫描局域网": "act.scan", "识别并预览": "act.detect", "检测": "act.detect",
+    "连接": "act.connect", "保存并连接": "act.connect", "扫描局域网": "act.scan", "测试这个 IP": "act.search", "检查更新": "act.refresh", "下载": "act.download", "关闭": "act.close", "识别并预览": "act.detect", "检测": "act.detect",
     "应用并预览": "act.apply", "预览一帧": "act.preview", "预览": "act.preview", "开始采集": "act.record", "录 60 秒": "act.record",
     "仍然开始": "act.record", "停止并取回": "act.stop", "停止并校验": "act.stop", "实时": "act.live", "停止实时": "act.live_stop",
     "刷新": "act.refresh", "终端": "act.terminal", "复制": "act.copy", "导出": "act.export", "取回": "act.download",

@@ -4,17 +4,18 @@ from __future__ import annotations
 import os
 import shutil
 import sys
+import threading
 import time
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QEasingCurve, QPointF, QPropertyAnimation, QRectF, QSize, Qt, QTimer, QVariantAnimation
+from PySide6.QtCore import QObject, Signal, QEasingCurve, QPointF, QPropertyAnimation, QRectF, QSize, Qt, QTimer, QVariantAnimation
 from PySide6.QtGui import QColor, QFont, QIcon, QImage, QPainter, QPainterPath, QPen, QPixmap, QTransform
 from PySide6.QtWidgets import (
     QApplication, QButtonGroup, QComboBox, QDialog, QFileDialog, QFrame, QGraphicsDropShadowEffect, QGridLayout,
     QGraphicsPixmapItem, QGraphicsScene, QGraphicsView, QHBoxLayout, QLabel,
     QCheckBox, QLineEdit, QListWidget, QListWidgetItem, QProgressBar, QPushButton, QScrollArea,
-    QSizePolicy, QStackedWidget, QVBoxLayout, QWidget,
+    QSizePolicy, QStackedWidget, QTextBrowser, QVBoxLayout, QWidget,
 )
 
 from . import i18n
@@ -22,7 +23,8 @@ from .i18n import tr, tr_msg, tr_opt
 from .camera_lab import TUNING, support_for
 from .camera_modes import PRESETS, mode_key, mode_label, saved_mode, sort_modes
 from .product import STUDIO
-from . import icons, motion, theme
+from . import icons, motion, theme, updates
+from . import __version__
 from .v7_ui import V7Mixin
 
 STYLE = """
@@ -194,6 +196,62 @@ PILL_KINDS = {  # kind -> (icon, background, foreground); light values, theme.cs
 }
 FILLED_DOT = {"rec", "live", "neutral", "idle"}
 _PILL_CACHE: dict[tuple, QPixmap] = {}
+
+
+class _UpdateBridge(QObject):
+    done = Signal(dict)
+
+
+class UpdateDialog(QDialog):
+    """v12: shows the new version's notes; Download opens the GitHub page in the browser (no self-replace)."""
+
+    def __init__(self, parent: QWidget, result: dict) -> None:
+        super().__init__(parent)
+        self.result = result
+        self.setWindowTitle(tr("检查更新"))
+        self.setMinimumSize(520, 420)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 22, 24, 20)
+        layout.setSpacing(10)
+        head = QHBoxLayout()
+        badge = QLabel()
+        badge.setPixmap(icons.pixmap("act.download", 24, "accent"))
+        head.addWidget(badge)
+        title = _label(tr_msg(f"有新版本 v{result.get('version', '')}"), "cardTitle")
+        head.addWidget(title, 1)
+        head.addWidget(Pill(tr_msg(f"当前 v{__version__}"), "neutral"))
+        layout.addLayout(head)
+        if result.get("asset_name"):
+            layout.addWidget(_label(f"{result['asset_name']} · {_size(result.get('asset_size', 0))}", "meta"))
+        self.notes = QTextBrowser()
+        self.notes.setOpenExternalLinks(False)
+        self.notes.setMarkdown(result.get("notes") or tr("没有更新说明"))
+        layout.addWidget(self.notes, 1)
+        layout.addWidget(_label("下载后解压到新文件夹即可，旧版本和设置不会被改动。", "meta"))
+        row = QHBoxLayout()
+        row.addStretch(1)
+        close = QPushButton(tr("关闭"))
+        close.clicked.connect(self.reject)
+        self.download = QPushButton(tr("下载"))
+        self.download.setObjectName("primary")
+        _decorate(close, "关闭")
+        _decorate(self.download, "下载", True)
+        self.download.clicked.connect(self.open_download)
+        row.addWidget(close)
+        row.addWidget(self.download)
+        layout.addLayout(row)
+
+    def target_url(self) -> str:
+        for url in (self.result.get("asset_url"), self.result.get("url"), updates.RELEASES):
+            if url and updates.safe_url(url):
+                return url
+        return updates.RELEASES
+
+    def open_download(self) -> None:
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        QDesktopServices.openUrl(QUrl(self.target_url()))
+        self.accept()
 
 
 class Pill(QLabel):
@@ -2022,12 +2080,72 @@ class StudioWindow(V7Mixin, QWidget):
         self.reduced_motion.setObjectName("smallCheck")
         self.reduced_motion.setMaximumHeight(18)
         self._motion_slot.addWidget(self.reduced_motion)  # same row as the folder label: no extra height
+        # v12: update check (GitHub Releases, read-only; never replaces files)
+        self.update_auto = QCheckBox(tr("启动时检查更新"))
+        self.update_auto.setToolTip(tr("每天最多一次，在后台进行，不影响使用"))
+        self.update_auto.setObjectName("smallCheck")
+        self.update_auto.setMaximumHeight(18)
+        self.update_auto.setChecked(str(STUDIO.settings.get("update_check", "1")) not in ("", "0", "False", "false"))
+        self.update_auto.toggled.connect(lambda on: STUDIO.update_settings({"update_check": "1" if on else "0"}))
+        self.update_pill = Pill(f"v{__version__}", "neutral")
+        update_row = QHBoxLayout()
+        update_row.setContentsMargins(0, 0, 0, 0)
+        update_row.addWidget(self.update_auto)
+        update_row.addStretch(1)
+        self._motion_slot.addSpacing(8)
+        self._motion_slot.addWidget(self.update_pill)  # status pill shares the folder row; the toggle row stays 18 px
+        layout.addLayout(update_row)
+        layout.setSpacing(max(6, layout.spacing() - 2))  # v12: make room for the update toggle without a scrollbar
+        self._update_bridge = _UpdateBridge()
+        self._update_bridge.done.connect(self._update_finished)
+        self._update_result: dict[str, Any] = {}
         self._page_outer.insertWidget(1, self._data_card(), 1)
         self._page_outer.takeAt(2)  # drop the trailing stretch so the data card fills the column
         self._set_footer("settings",
             self._action("保存", self.save_settings, True),
-            self._action("检查工具", self.check_tools))
+            self._action("检查工具", self.check_tools),
+            self._action("检查更新", lambda: self.check_updates(False)))
         return page
+
+    # ------------------------------------------------------------------ v12 update check
+    def check_updates(self, quiet: bool = False) -> None:
+        if getattr(self, "_update_running", False):
+            return
+        self._update_running = True
+        self._update_quiet = quiet
+        self.update_pill.set_state("info", tr("正在检查更新…"))
+        fetch = getattr(self, "_update_fetch", None)
+
+        def work() -> None:
+            try:
+                result = updates.check(__version__, fetch) if fetch else updates.check(__version__)
+            except Exception:  # never let a background check break the window
+                result = {"state": "error", "message": "无法读取更新信息"}
+            self._update_bridge.done.emit(result)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _update_finished(self, result: dict) -> None:
+        self._update_running = False
+        self._update_result = result
+        state = result.get("state")
+        if state == "newer":
+            self.update_pill.set_state("warn", tr_msg(f"有新版本 v{result['version']}"))
+        elif state == "latest":
+            self.update_pill.set_state("ok", tr_msg(f"已是最新 v{__version__}"))
+        else:
+            self.update_pill.set_state("error", tr("检查更新失败"))
+            self.update_pill.setToolTip(tr_msg(result.get("message", "")))
+        if state in ("newer", "latest"):
+            STUDIO.update_settings({"update_checked_at": str(int(result.get("checked_at") or time.time()))})
+        if getattr(self, "_update_quiet", False):
+            if state == "newer":
+                self.toast(tr_msg(f"有新版本 v{result['version']}，可在设置页下载"))
+            return
+        if state == "newer":
+            UpdateDialog(self, result).exec()
+        else:
+            self.toast(tr_msg(f"已是最新 v{__version__}") if state == "latest" else tr_msg(result.get("message", "")))
 
     def _stack_field(self, caption: str, key: str) -> QWidget:
         box = QWidget()
@@ -2467,6 +2585,8 @@ def main() -> None:
     window.show()
     QTimer.singleShot(300, STUDIO.scan_pc_peripherals)  # v9: local USB/serial inventory fills the disconnected pages
     QTimer.singleShot(600, STUDIO.scan_pc)  # v9: PC cameras + automatic choice
+    if updates.due(STUDIO.settings):
+        QTimer.singleShot(3000, lambda: window.check_updates(True))  # v12: quiet, daily, background
     settings = STUDIO.state()["settings"]
     if not settings.get("wizard_done") and not settings.get("host"):
         QTimer.singleShot(400, window.open_wizard)  # first run

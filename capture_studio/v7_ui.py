@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
     QStackedWidget, QSystemTrayIcon, QToolButton, QVBoxLayout, QWidget,
 )
 
-from . import credstore, errors, health, i18n, icons, lan_scan, serial_term, session_review, templates, theme
+from . import credstore, discovery, errors, health, i18n, icons, lan_scan, serial_term, session_review, templates, theme
 from .i2c_hints import describe as i2c_describe
 from .i18n import tr, tr_msg
 from .product import STUDIO
@@ -48,7 +48,8 @@ def _btn(text: str, primary: bool = False) -> QPushButton:
 
 class _Bridge(QObject):
     """Thread -> UI hand-off."""
-    scan_done = Signal(list)
+    scan_done = Signal(object)
+    test_done = Signal(list)
     serial_data = Signal(bytes)
     thumbs_done = Signal(dict)
     frames_done = Signal(list)
@@ -65,6 +66,7 @@ class Wizard(QDialog):
         self.setMinimumSize(560, 520)
         self.bridge = _Bridge()
         self.bridge.scan_done.connect(self._scan_finished)
+        self.bridge.test_done.connect(self._test_finished)
         self._scanner = scanner
         self._cancel = threading.Event()
         layout = QVBoxLayout(self)
@@ -79,7 +81,9 @@ class Wizard(QDialog):
         box = QVBoxLayout(one)
         box.setContentsMargins(0, 0, 0, 0)
         box.setSpacing(8)
-        box.addWidget(_lbl("只对本机所在网段的 22 端口做一次快速连接测试，不登录、不扫其他端口。", "meta"))
+        rule = _lbl(discovery.RULE_TEXT + "不登录、不扫其他端口。", "meta")
+        rule.setWordWrap(True)
+        box.addWidget(rule)
         row = QHBoxLayout()
         self.scan_button = _btn("扫描局域网", True)
         self.scan_button.clicked.connect(self.start_scan)
@@ -95,7 +99,14 @@ class Wizard(QDialog):
         self.host = QLineEdit()
         self.host.setPlaceholderText("192.168.1.50")
         manual.addWidget(self.host, 1)
+        self.test_button = _btn("测试这个 IP")
+        self.test_button.clicked.connect(self.test_host)
+        manual.addWidget(self.test_button)
         box.addLayout(manual)
+        self.guide = _lbl("", "meta")
+        self.guide.setWordWrap(True)
+        self.guide.setVisible(False)
+        box.addWidget(self.guide)
         self.steps.addWidget(one)
         # step 2: credentials
         two = QWidget()
@@ -155,18 +166,38 @@ class Wizard(QDialog):
             if scanner is not None:
                 found = scanner()
             else:
-                hosts = lan_scan.candidate_hosts(lan_scan.local_addresses())
-                found = lan_scan.scan(hosts, cancel=self._cancel.is_set)
+                found = discovery.discover(cancel=self._cancel.is_set)
+            if isinstance(found, list):
+                found = {"found": found, "guidance": []}
             self.bridge.scan_done.emit(found)
 
         threading.Thread(target=work, daemon=True).start()
 
-    def _scan_finished(self, found: list) -> None:
+    def test_host(self) -> None:
+        host = self.host.text().strip()
+        if not host:
+            self.scan_note.setText(tr("请选择或填写开发板地址"))
+            return
+        self.test_button.setEnabled(False)
+        self.scan_note.setText(tr("正在测试…"))
+        threading.Thread(target=lambda: self.bridge.test_done.emit(list(discovery.test_one(host))), daemon=True).start()
+
+    def _test_finished(self, result: list) -> None:
+        self.test_button.setEnabled(True)
+        self.scan_note.setText(tr_msg(result[1]))
+
+    def _scan_finished(self, result: Any) -> None:
+        result = {"found": result, "guidance": []} if isinstance(result, list) else result
+        found = [item if "kind" in item else discovery.classify(dict(item)) for item in result.get("found", [])]
+        tips = result.get("guidance") or []
+        self.guide.setText("\n".join(tr_msg(t) for t in tips))
+        self.guide.setVisible(bool(tips))
+        self.hosts.clear()
         self.scan_button.setEnabled(True)
         self.scan_note.setText(tr_msg(f"找到 {len(found)} 台可 SSH 的设备") if found else tr("没有找到，可以手动填写地址"))
         for item in found:
-            text = item["host"] + (f"  ·  {item['hint']}" if item.get("hint") else "")
-            row = QListWidgetItem(text)
+            row = QListWidgetItem(discovery.label_for(item, tr_msg))
+            row.setIcon(icons.icon({"board": "dev.board", "pc": "nav.pc"}.get(item["kind"], "dev.net"), 16))
             row.setData(Qt.ItemDataRole.UserRole, item["host"])
             row.setToolTip(item.get("banner") or "")
             self.hosts.addItem(row)

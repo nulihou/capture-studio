@@ -88,6 +88,9 @@ def main() -> None:
         "--hidden-import", f"{PACKAGE.name}.window",
         "--hidden-import", f"{PACKAGE.name}.v7_ui",
         "--hidden-import", f"{PACKAGE.name}.icons",
+        "--hidden-import", f"{PACKAGE.name}.motion",
+        "--hidden-import", f"{PACKAGE.name}.discovery",
+        "--hidden-import", f"{PACKAGE.name}.updates",
         "--hidden-import", "PySide6.QtSvg",
         "--add-data", f"{PACKAGE / 'assets' / 'icons'}{os.pathsep}{PACKAGE.name}/assets/icons",
         "--icon", str(PACKAGE / "assets" / "app.ico"),
@@ -124,16 +127,16 @@ def main() -> None:
             archive.write(PACKAGE / name, f"capture_studio/{name}")
         archive.write(PACKAGE / "BOARD_README.md", "BOARD_README.md")
     for personal in ("board_connection.json", "capture_settings.json", "self_test.json",
-                     "connection_self_test.json"):
+                     "connection_self_test.json", "studio_settings.json", "ui_prefs.json", "capture_templates.json"):
         (bundle / personal).unlink(missing_ok=True)
     captured = bundle / "captures"
     if captured.exists():
         shutil.rmtree(captured)
     (bundle/'连接开发板.cmd').write_text('@echo off\r\ncd /d "%~dp0"\r\nstart "" "%~dp0CaptureStudio.exe" --connect\r\n',encoding='utf-8')
     shutil.copy2(PACKAGE/'PORTABLE_GUIDE.md',bundle/'换电脑使用说明.md')
-    for name in ['HUB_RESET_TRIGGER_20261011.md', 'LIVE_PREVIEW_20261011.md', 'BOARD_README.md', 'PREVIEW_PERFORMANCE_20261011.md', 'NATIVE_PLATFORM_30FPS_20261011.md', 'PREVIEW_30FPS_20261012.md']:
-        shutil.copy2(PACKAGE/name,bundle/name)
-    with ZipFile(DIST / "CaptureStudio_windows_x64.zip", "w",
+    shutil.copy2(PACKAGE / 'BOARD_README.md', bundle / 'BOARD_README.md')  # v12: lab diagnostics notes stay out of public builds
+    version = importlib.import_module(PACKAGE.name).__version__
+    with ZipFile(DIST / f"KV260CaptureStudio_v{version}_windows_x64.zip", "w",
                  compression=ZIP_DEFLATED, compresslevel=6) as archive:
         for path in bundle.rglob("*"):
             if path.is_file():

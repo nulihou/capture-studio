@@ -19,3 +19,4 @@ capture_studio/capture_templates.json
 capture_studio/build_tmp_portable/
 *.pre_audit
 capture_studio/ui_redesign/screens_*/
+capture_studio/.build_deps/
