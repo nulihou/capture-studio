@@ -1,4 +1,4 @@
-"""Tkinter presentation for the portable PC/KV260 capture controller.
+"""Tkinter presentation for the portable PC/board capture controller.
 
 Light work surface, one blue for the primary action, and the picture larger
 than the form. Status lines state facts. Controls name the action.
@@ -331,7 +331,7 @@ def build_ui(app: Any) -> None:
     app.settings_tab = ttk.Frame(notebook, style="App.TFrame")
     notebook.add(app.lab_tab, text="  摄像头测试  ")
     notebook.add(app.pc_tab, text="  电脑采集  ")
-    notebook.add(app.board_tab, text="  KV260 采集  ")
+    notebook.add(app.board_tab, text="  开发板采集  ")
     notebook.add(app.review_tab, text="  会话与校验  ")
     notebook.add(app.settings_tab, text="  工具设置  ")
 
@@ -632,7 +632,7 @@ def _build_board(app: Any) -> None:
     left, preview_parent = _mode_body(app.board_tab)
     left.columnconfigure(0, weight=1)
     left.columnconfigure(1, weight=1)
-    ttk.Label(left, text="KV260 采集", style="CardTitle.TLabel").grid(
+    ttk.Label(left, text="开发板采集", style="CardTitle.TLabel").grid(
         row=0, column=0, sticky="w")
     ttk.Button(left, text="连接", command=app._configure_board,
                style="Quiet.TButton").grid(row=0, column=1, sticky="e")

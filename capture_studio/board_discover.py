@@ -105,7 +105,7 @@ def choose_board_host(port22: set[str], arp: dict[str, str], named: list[str]) -
 
 
 def ensure_ssh_key(home: Path, runner=None) -> Path:
-    """Create this computer's KV260 key when it does not exist yet."""
+    """Create this computer's Capture Studio SSH key (file name id_ed25519_kv260 for compatibility) when it does not exist yet."""
     path = home / ".ssh" / "id_ed25519_kv260"
     if path.is_file():
         return path

@@ -1,0 +1,5 @@
+# Capture Studio (Windows desktop)
+PySide6>=6.5
+pyserial>=3.5
+keyring>=24.0  # optional: "Remember password" in Windows Credential Manager
+# zeroconf>=0.131  # optional: DNS-SD _ssh._tcp browse during LAN discovery

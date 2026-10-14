@@ -82,7 +82,7 @@ try:
         check(f"lab tab {i} switches", win.lab_stack.currentIndex() == i and win.lab_tabs[i].isChecked())
     for page, texts in (("lab", ["录 60 秒", "停止并取回"]), ("pc", ["开始采集", "停止并校验"]),
                         ("board", ["开始采集", "停止并取回"]), ("sessions", ["取回", "校验"]),
-                        ("settings", ["保存", "检查工具"])):
+                        ("settings", ["保存", "检查工具", "检查更新"])):
         win.show_page(page); app.processEvents()
         holder = win.footer_stack.currentWidget()
         shown = [b.text() for b in holder.findChildren(w.QPushButton)]
@@ -590,7 +590,7 @@ try:
     check("v11: health uses icons, no text marks", len(labels) == 3 and not any(m in texts for m in ("✓", "✕", ">!<")))
     hd.close()
     check("v11: reduced-motion setting present", hasattr(win, "reduced_motion"))
-    check("v11: version 0.11.0", importlib.import_module(pkg).__version__ == "0.11.0")
+    check("v11: version 0.12.3", importlib.import_module(pkg).__version__ == "0.12.3")
     mo.set_reduced(True)
 except Exception:
     results.append("ERROR  " + traceback.format_exc())

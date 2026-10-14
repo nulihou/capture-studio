@@ -109,9 +109,11 @@ class LauncherTests(unittest.TestCase):
             text = (PKG_DIR / name).read_text(encoding="utf-8")
             self.assertIsNone(re.search(r"^\s*from capture_studio\.", text, re.M), name)
             self.assertNotIn('"--hidden-import", "capture_studio.', text)
-        cmd = (PKG_DIR / "Start-KV260-CaptureStudio.cmd").read_text(encoding="utf-8")
-        self.assertIn("%PKG%", cmd)
-        self.assertNotIn("python -m capture_studio", cmd)
+        primary = (PKG_DIR / "Start-CaptureStudio.cmd").read_text(encoding="utf-8")
+        self.assertIn("%PKG%", primary)
+        self.assertNotIn("python -m capture_studio", primary)
+        legacy = (PKG_DIR / "Start-KV260-CaptureStudio.cmd").read_text(encoding="utf-8")
+        self.assertIn("Start-CaptureStudio.cmd", legacy)
 
     def test_launcher_starts_qt_window(self):
         text = (PKG_DIR / "launcher.py").read_text(encoding="utf-8")

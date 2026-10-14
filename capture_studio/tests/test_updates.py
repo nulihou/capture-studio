@@ -38,19 +38,19 @@ def counting(inner, bag, key="n"):
 
 class Versions(unittest.TestCase):
     def test_semver(self):
-        self.assertTrue(updates.is_newer("0.13.0", "0.12.2"))
-        self.assertTrue(updates.is_newer("v0.12.2", "0.12.0"))
+        self.assertTrue(updates.is_newer("0.13.0", "0.12.3"))
+        self.assertTrue(updates.is_newer("v0.12.3", "0.12.0"))
         self.assertTrue(updates.is_newer("1.0", "0.99.9"))
-        self.assertFalse(updates.is_newer("0.12.2", "0.12.2"))
-        self.assertFalse(updates.is_newer("0.9.0", "0.12.2"))
-        self.assertFalse(updates.is_newer("0.12.2-rc1", "0.12.2"))
-        self.assertTrue(updates.is_newer("0.12.2", "0.12.2-rc1"))
-        self.assertFalse(updates.is_newer("garbage", "0.12.2"))
+        self.assertFalse(updates.is_newer("0.12.3", "0.12.3"))
+        self.assertFalse(updates.is_newer("0.9.0", "0.12.3"))
+        self.assertFalse(updates.is_newer("0.12.3-rc1", "0.12.3"))
+        self.assertTrue(updates.is_newer("0.12.3", "0.12.3-rc1"))
+        self.assertFalse(updates.is_newer("garbage", "0.12.3"))
 
 
 class Check(unittest.TestCase):
     def test_newer_with_zip_asset(self):
-        r = updates.check("0.12.2", ok(REL))
+        r = updates.check("0.12.3", ok(REL))
         self.assertEqual(r["state"], "newer")
         self.assertEqual(r["version"], "0.13.0")
         self.assertTrue(r["asset_name"].endswith(".zip"))
@@ -72,7 +72,7 @@ class Check(unittest.TestCase):
             (lambda u, t: (200, {}, b"<html>"), "无法读取"), (ok({"message": "x"}), "无法读取"), (ok([]), "无法读取"),
         ]
         for fetch, needle in cases:
-            r = updates.check("0.12.2", fetch)
+            r = updates.check("0.12.3", fetch)
             self.assertEqual(r["state"], "error", needle)
             self.assertIn(needle, r["message"])
 
@@ -82,9 +82,9 @@ class Check(unittest.TestCase):
         try:
             for fetch in (http(403, {"X-RateLimit-Remaining": "0"}), http(404), http(407), http(503), raising(TimeoutError()),
                           raising(urllib.error.URLError("proxy")), raising(urllib.error.URLError("x")), ok({})):
-                text = i18n.tr_msg(updates.check("0.12.2", fetch)["message"])
+                text = i18n.tr_msg(updates.check("0.12.3", fetch)["message"])
                 self.assertNotRegex(text, "[\u4e00-\u9fff]", text)
-            for msg in ("有新版本 v0.13.0", "已是最新 v0.12.2", "有新版本 v0.13.0，可在设置页下载", "当前 v0.12.2", "检查更新失败"):
+            for msg in ("有新版本 v0.13.0", "已是最新 v0.12.3", "有新版本 v0.13.0，可在设置页下载", "当前 v0.12.3", "检查更新失败"):
                 self.assertNotRegex(i18n.tr_msg(msg), "[\u4e00-\u9fff]", msg)
         finally:
             i18n.LANG = "zh"
@@ -110,7 +110,7 @@ class Check(unittest.TestCase):
 class ProxyFallback(unittest.TestCase):
     def test_proxy_fail_then_direct_succeeds(self):
         bag = {}
-        r = updates.check("0.12.2",
+        r = updates.check("0.12.3",
                           counting(raising(urllib.error.URLError(ConnectionRefusedError("proxy refused"))), bag, "proxy"),
                           direct_fetch=counting(ok(REL), bag, "direct"))
         self.assertEqual(r["state"], "newer")
@@ -119,16 +119,16 @@ class ProxyFallback(unittest.TestCase):
         self.assertEqual(bag, {"proxy": 1, "direct": 1})
 
     def test_proxy_timeout_then_direct_succeeds(self):
-        r = updates.check("0.12.2", raising(socket.timeout("timed out")), direct_fetch=ok(REL))
+        r = updates.check("0.12.3", raising(socket.timeout("timed out")), direct_fetch=ok(REL))
         self.assertEqual((r["state"], r["via"]), ("newer", "direct"))
 
     def test_proxy_407_then_direct_succeeds(self):
-        r = updates.check("0.12.2", http(407), direct_fetch=ok(REL))
+        r = updates.check("0.12.3", http(407), direct_fetch=ok(REL))
         self.assertEqual((r["state"], r["via"]), ("newer", "direct"))
 
     def test_both_fail_keeps_proxy_message(self):
         bag = {}
-        r = updates.check("0.12.2",
+        r = updates.check("0.12.3",
                           counting(raising(urllib.error.URLError("Tunnel connection failed: 502")), bag, "proxy"),
                           direct_fetch=counting(raising(urllib.error.URLError(ConnectionRefusedError())), bag, "direct"))
         self.assertEqual(r["state"], "error")
@@ -137,28 +137,28 @@ class ProxyFallback(unittest.TestCase):
 
     def test_rate_limit_on_direct_after_proxy_fail(self):
         """Direct answers with HTTP 429: keep the rate-limit message, do not fall back to the proxy wording."""
-        r = updates.check("0.12.2", raising(socket.timeout("timed out")),
+        r = updates.check("0.12.3", raising(socket.timeout("timed out")),
                           direct_fetch=http(429))
         self.assertEqual(r["state"], "error")
         self.assertIn("访问次数", r["message"])
 
     def test_no_double_request_when_proxy_works(self):
         bag = {}
-        r = updates.check("0.12.2", counting(ok(REL), bag, "proxy"),
+        r = updates.check("0.12.3", counting(ok(REL), bag, "proxy"),
                           direct_fetch=counting(ok(REL), bag, "direct"))
         self.assertEqual(r["via"], "proxy")
         self.assertEqual(bag, {"proxy": 1})
 
     def test_no_retry_on_rate_limit_from_proxy(self):
         bag = {}
-        r = updates.check("0.12.2", counting(http(403, {"X-RateLimit-Remaining": "0"}), bag, "proxy"),
+        r = updates.check("0.12.3", counting(http(403, {"X-RateLimit-Remaining": "0"}), bag, "proxy"),
                           direct_fetch=counting(ok(REL), bag, "direct"))
         self.assertIn("访问次数", r["message"])
         self.assertEqual(bag, {"proxy": 1})
 
     def test_no_retry_on_404_from_proxy(self):
         bag = {}
-        r = updates.check("0.12.2", counting(http(404), bag, "proxy"),
+        r = updates.check("0.12.3", counting(http(404), bag, "proxy"),
                           direct_fetch=counting(ok(REL), bag, "direct"))
         self.assertIn("还没有发布", r["message"])
         self.assertEqual(bag, {"proxy": 1})
@@ -176,7 +176,7 @@ class ProxyFallback(unittest.TestCase):
 
         updates._request = fake
         try:
-            r = updates.check("0.12.2")
+            r = updates.check("0.12.3")
         finally:
             updates._request = original
         self.assertEqual(r["state"], "newer")
@@ -189,7 +189,7 @@ class Dialog(unittest.TestCase):
         app = QApplication.instance() or QApplication([])
         from capture_studio import window
         parent = QWidget()
-        r = updates.check("0.12.2", ok(REL))
+        r = updates.check("0.12.3", ok(REL))
         dlg = window.UpdateDialog(parent, r)
         self.assertEqual(dlg.target_url(), REL["assets"][1]["browser_download_url"])
         self.assertIn("faster", dlg.notes.toPlainText())

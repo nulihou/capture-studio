@@ -1,4 +1,4 @@
-"""Portable Windows desktop controller for PC and KV260 USB acquisition."""
+"""Portable Windows desktop controller for PC and board USB acquisition."""
 
 from __future__ import annotations
 
@@ -292,7 +292,7 @@ class CaptureDesktop(tk.Tk):
         try:
             return self._client()
         except ValueError as exc:
-            messagebox.showerror("KV260 连接设置", str(exc))
+            messagebox.showerror("开发板连接设置", str(exc))
             return None
 
     def _log(self, message: str) -> None:
@@ -982,7 +982,7 @@ class CaptureDesktop(tk.Tk):
         except ValueError as exc:
             messagebox.showerror("预览设置", str(exc))
             return
-        self._run("正在获取 KV260 摄像头预览…", lambda: client.snapshot(options),
+        self._run("正在获取开发板 摄像头预览…", lambda: client.snapshot(options),
                   lambda body: (self._show_png(body, "board"), self._log("板端画面已确认")))
 
     def _start_local(self) -> None:
@@ -1108,9 +1108,9 @@ class CaptureDesktop(tk.Tk):
         if error:
             if not self.board_session_id:
                 set_badge(self, "board", "设备查询失败" if status_connected else "连接异常")
-            self._log("KV260 设备查询失败：" + error)
+            self._log("开发板设备查询失败：" + error)
         else:
-            self._log("KV260 设备：" + ("、".join(devices) if devices else
+            self._log("开发板设备：" + ("、".join(devices) if devices else
                                       "未检测到；请检查摄像头 USB 连接"))
 
     def _configure_board(self) -> None:
@@ -1191,7 +1191,7 @@ class CaptureDesktop(tk.Tk):
             client = self._client()
         except ValueError as exc:
             self.board_scan_var.set("请填写地址和令牌")
-            self._log("KV260 连接设置：" + str(exc))
+            self._log("开发板连接设置：" + str(exc))
             return
         self.board_scan_var.set("连接中…")
 
@@ -1232,14 +1232,14 @@ class CaptureDesktop(tk.Tk):
             self._apply_board_devices(devices, error, status_connected=True)
             if error is None and has_info:
                 self._note_board_cameras(infos, board)
-            self._log("KV260 状态：" + json.dumps(value, ensure_ascii=False))
+            self._log("开发板状态：" + json.dumps(value, ensure_ascii=False))
             if self._preview_after_connect and not value.get("recording"):
                 self._preview_after_connect = False
                 self.after(400, self._live_board)
             elif self._preview_after_connect:
                 self._preview_after_connect = False
 
-        self._run("正在读取 KV260 状态和摄像头…", work, done)
+        self._run("正在读取开发板 状态和摄像头…", work, done)
 
     def _list_board_devices(self) -> None:
         if self.working:
@@ -1249,7 +1249,7 @@ class CaptureDesktop(tk.Tk):
             client = self._client()
         except ValueError as exc:
             self.board_scan_var.set("请填写地址和令牌")
-            self._log("KV260 连接设置：" + str(exc))
+            self._log("开发板连接设置：" + str(exc))
             return
         self.board_scan_var.set("正在检测…")
 
@@ -1266,7 +1266,7 @@ class CaptureDesktop(tk.Tk):
             if error is None and "device_info" in payload:
                 self._note_board_cameras(payload.get("device_info") or [], payload.get("board") or {})
 
-        self._run("正在列出 KV260 摄像头…", work, done)
+        self._run("正在列出开发板 摄像头…", work, done)
 
     def _start_board(self) -> None:
         self._stop_live_board(remote=False)
@@ -1283,7 +1283,7 @@ class CaptureDesktop(tk.Tk):
             self.board_session_var.set("会话 " + self.board_session_id)
             self._arm_auto_stop("board", self.board_session_id)
             set_badge(self, "board", "正在录制", live=True)
-            self._log(f"KV260 采集中：{self.board_session_id}")
+            self._log(f"开发板采集中：{self.board_session_id}")
             self._save_settings()
 
         if has_image_tuning(options):
@@ -1291,7 +1291,7 @@ class CaptureDesktop(tk.Tk):
         warning = slow_usb_warning(options.usb_speed, options.width, options.height)
         if warning:
             self._log(warning)
-        self._run("正在确认画面并启动 KV260 采集…",
+        self._run("正在确认画面并启动 开发板采集…",
                   lambda: client.request("POST", "/start", options.__dict__, timeout=60), done)
 
     def _stop_board(self) -> None:
@@ -1318,10 +1318,10 @@ class CaptureDesktop(tk.Tk):
             self.board_session_var.set("会话 " + manifest["session_id"])
             self.board_metrics_var.set("已取回电脑，正在校验四关")
             set_badge(self, "board", "已取回")
-            self._log(f"KV260 已停止并取回：{session}")
+            self._log(f"开发板已停止并取回：{session}")
             self._audit_path(session)
 
-        self._run("正在停止 KV260 并取回文件…", work, done)
+        self._run("正在停止开发板 并取回文件…", work, done)
 
     def _list_board_sessions(self) -> None:
         client = self._safe_client()
@@ -1338,7 +1338,7 @@ class CaptureDesktop(tk.Tk):
         if client is None:
             return
         session_id = self.remote_session.get().strip()
-        self._run("正在取回 KV260 会话…", lambda: client.download_session(session_id, self._output_root()),
+        self._run("正在取回开发板 会话…", lambda: client.download_session(session_id, self._output_root()),
                   lambda path: (self._log(f"已取回：{path}"), self._audit_path(path)))
 
     def _audit_chosen(self) -> None:
@@ -1563,7 +1563,7 @@ class CaptureDesktop(tk.Tk):
 
 def main() -> None:
     if os.name != "nt":
-        raise SystemExit("Desktop UI currently targets Windows; run board_agent on KV260 Linux")
+        raise SystemExit("Desktop UI currently targets Windows; run board_agent on the board (Linux)")
     preset = sys.argv[2] if len(sys.argv) >= 3 and sys.argv[1] == "--preset" else None
     app = CaptureDesktop()
     if preset:

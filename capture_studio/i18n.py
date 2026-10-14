@@ -123,7 +123,7 @@ UI = {
     "内存": "Memory", "存储": "Storage", "网络": "Network", "运行": "Uptime", "温度": "Temp",
     "磁盘": "Disk", "网速": "Net", "可用": "free", "核": "cores",
     "无画面": "No Signal",
-    "大屏": "Full Screen",
+    "大屏": "Large view",
     "滚轮放大    拖动平移    Esc 关闭": "Scroll to zoom    Drag to pan    Esc to close",
     "关闭": "Close",
     "连接": "Connect",
@@ -177,7 +177,7 @@ UI = {
     "编码": "Codec",
     "开始采集": "Start Recording",
     "停止并校验": "Stop & Verify",
-    "KV260 采集": "KV260 Capture",
+    "KV260 采集": "Board Capture",
     "实时": "Live",
     "预览": "Preview",
     "板端": "Board",
@@ -528,3 +528,9 @@ _PATTERNS[:0] = [
 _V121 = {"Capture Studio": "Capture Studio", "开发板采集工作室": "Capture Studio"}
 UI.update({k: v for k, v in _V121.items() if k not in UI})
 MESSAGES.update({k: v for k, v in _V121.items() if k not in MESSAGES})
+
+_V123 = {
+    "Capture Studio SSH 密钥": "Capture Studio SSH key",
+}
+UI.update({k: v for k, v in _V123.items() if k not in UI})
+MESSAGES.update({k: v for k, v in _V123.items() if k not in MESSAGES})
