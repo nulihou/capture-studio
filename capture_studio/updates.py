@@ -1,7 +1,7 @@
 """v12 update check: asks GitHub Releases for the latest version. Read-only and never replaces any file;
 the user downloads the new package in the browser.
 
-v0.12.1: if the system proxy is dead (refused / tunnel / timeout / generic connect failure),
+v0.12.2: if the system proxy is dead (refused / tunnel / timeout / generic connect failure),
 retry once with no proxy. HTTP answers (including rate-limit and 404) are kept as-is and never
 re-tried; a working proxy path is used only once.
 """
@@ -15,7 +15,7 @@ import urllib.error
 import urllib.request
 from typing import Any, Callable
 
-REPO = "nulihou/kv260-capture-studio"
+REPO = "nulihou/capture-studio"
 API = f"https://api.github.com/repos/{REPO}/releases/latest"
 RELEASES = f"https://github.com/{REPO}/releases"
 DAY = 24 * 3600
@@ -59,7 +59,7 @@ def is_proxy_connect_failure(exc: BaseException) -> bool:
 def _request(url: str, timeout: float, proxies: dict[str, str] | None) -> tuple[int, dict[str, str], bytes]:
     """proxies=None → system / environment proxies; proxies={} → force direct."""
     request = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json",
-                                                   "User-Agent": "kv260-capture-studio-update-check"})
+                                                   "User-Agent": "capture-studio-update-check"})
     opener = urllib.request.build_opener(urllib.request.ProxyHandler(proxies))
     with opener.open(request, timeout=timeout) as response:
         return response.status, dict(response.headers), response.read()

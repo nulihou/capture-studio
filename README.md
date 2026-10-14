@@ -1,8 +1,16 @@
-# 开发板采集工作室 / Board Capture Studio
+# Capture Studio
 
-> 仓库名 `nulihou/kv260-capture-studio` 为历史保留；产品名是 Board Capture Studio。Python 包名仍是 `capture_studio`。
->
-> The GitHub repo slug is legacy; the product name is **Board Capture Studio**. The Python package remains `capture_studio`.
+> Former repo names `kv260-capture-studio` / `board-capture-studio` redirect here.
+
+## Clone
+
+```bash
+git clone https://github.com/nulihou/capture-studio.git
+cd capture-studio
+```
+
+Run: `python -m capture_studio`
+
 
 [中文](#中文) · [English](#english)
 
@@ -45,12 +53,12 @@ Windows 程序，用来给一块新的 KV260 采集 USB 摄像头数据。连接
 ### 使用
 
 ```powershell
-git clone https://github.com/nulihou/kv260-capture-studio.git
-cd kv260-capture-studio
+git clone https://github.com/nulihou/capture-studio.git
+cd capture-studio
 python -m capture_studio
 ```
 
-也可以双击 `capture_studio\Start-BoardCaptureStudio.cmd`。
+也可以双击 `capture_studio\Start-CaptureStudio.cmd`。
 
 1. 这台电脑还没有私钥时，软件生成 `~/.ssh/id_ed25519_kv260`。
 2. 同一网络只有一块 Xilinx 开发板时，IP 会自动填上。看到多块时列出地址，选中要用的那一块。板端目录保持 `/home/ubuntu/capture_studio`。摄像头序号留空；只接一只摄像头时会自动选用。
@@ -112,12 +120,12 @@ This page lists USB, video, serial, I2C, SPI, network, storage, audio, GPIO and 
 ### Use
 
 ```powershell
-git clone https://github.com/nulihou/kv260-capture-studio.git
-cd kv260-capture-studio
+git clone https://github.com/nulihou/capture-studio.git
+cd capture-studio
 python -m capture_studio
 ```
 
-Or double-click `capture_studio\Start-BoardCaptureStudio.cmd`.
+Or double-click `capture_studio\Start-CaptureStudio.cmd`.
 
 1. If this computer has no key yet, the program creates `~/.ssh/id_ed25519_kv260`.
 2. When the network shows exactly one Xilinx board, its IP is filled in. When several boards appear, the program lists them and waits for a choice. Leave the board directory as `/home/ubuntu/capture_studio`. Leave the camera serial blank; a single connected camera is selected automatically.

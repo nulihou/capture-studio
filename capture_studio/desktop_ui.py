@@ -234,7 +234,7 @@ def _preview_pane(parent: ttk.Frame, title: str, hint: str = "",
 
 def build_ui(app: Any) -> None:
     _styles(app)
-    app.title("Board Capture Studio")
+    app.title("Capture Studio")
     app.geometry("1280x800")
     app.minsize(1020, 680)
 
@@ -294,7 +294,7 @@ def build_ui(app: Any) -> None:
     header.grid(row=0, column=0, sticky="ew", pady=(8, 0))
     title_row = tk.Frame(header, background=BG)
     title_row.pack(fill="x")
-    tk.Label(title_row, text="Board Capture Studio", background=BG, foreground=INK,
+    tk.Label(title_row, text="Capture Studio", background=BG, foreground=INK,
              font=(FONT, 16)).pack(side="left")
     rule = tk.Frame(header, background=LINE, height=1)
     rule.pack_propagate(False)

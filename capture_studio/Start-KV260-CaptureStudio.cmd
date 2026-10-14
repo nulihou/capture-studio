@@ -7,12 +7,12 @@ if exist "%~dp0board_sync.py" (
   if errorlevel 1 pause
   exit /b 0
 )
-if exist "%~dp0release\BoardCaptureStudio\BoardCaptureStudio.exe" (
-  start "" "%~dp0release\BoardCaptureStudio\BoardCaptureStudio.exe" --connect
+if exist "%~dp0release\CaptureStudio\CaptureStudio.exe" (
+  start "" "%~dp0release\CaptureStudio\CaptureStudio.exe" --connect
   exit /b 0
 )
-if exist "%~dp0dist\BoardCaptureStudio\BoardCaptureStudio.exe" (
-  start "" "%~dp0dist\BoardCaptureStudio\BoardCaptureStudio.exe" --connect
+if exist "%~dp0dist\CaptureStudio\CaptureStudio.exe" (
+  start "" "%~dp0dist\CaptureStudio\CaptureStudio.exe" --connect
   exit /b 0
 )
 python -m %PKG%.portable_connect

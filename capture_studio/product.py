@@ -1,4 +1,4 @@
-"""Local product UI for Board Capture Studio.
+"""Local product UI for Capture Studio.
 
 The window is a browser page. Capture, SSH, and the board agent stay in the
 existing Python modules.

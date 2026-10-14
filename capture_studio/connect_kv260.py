@@ -120,7 +120,7 @@ def main():
         app.board_format.set('mjpeg')
         app.output_var.set(str(args.output_root.resolve()))
         for name in ('ffmpeg', 'ffprobe'):
-            tool_root = REPO / 'bin' if getattr(sys, 'frozen', False) else REPO / 'capture_studio/dist/BoardCaptureStudio/bin'
+            tool_root = REPO / 'bin' if getattr(sys, 'frozen', False) else REPO / 'capture_studio/dist/CaptureStudio/bin'
             getattr(app, f'{name}_var').set(str(tool_root / f'{name}.exe'))
         app.board_tab.master.select(app.board_tab)
 
