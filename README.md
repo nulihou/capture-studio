@@ -17,19 +17,19 @@ python -m capture_studio
 
 运行：`python -m capture_studio`
 
-## 界面（v0.12）
+## 界面（v0.12.4）
 
 左侧：测试、电脑、开发板、外设、会话、设置。
 
-### 摄像头测试
+### 摄像头测试（深色）
 
-![摄像头测试](docs/screenshots/v11/zh_light_lab.png)
+![摄像头测试](docs/screenshots/v12/zh_dark_lab.png)
 
 顶部四格为开发板、摄像头、画面参数和状态。左侧预览；右侧画面 / 曝光 / 图像。快捷键：Space 开始/停止，L 实时预览，P 预览一帧，F 大屏（Large view），H 采集前体检。
 
-### 开发板
+### 开发板（深色）
 
-![开发板](docs/screenshots/v11/zh_light_board.png)
+![开发板](docs/screenshots/v12/zh_dark_board.png)
 
 未连接时用**连接向导**或快速扫描。发现规则（与向导内说明一致）：
 
@@ -44,9 +44,9 @@ python -m capture_studio
 
 连接后显示型号、系统、CPU、内存、温度、磁盘等（KV260 / Zynq / Jetson / 树莓派 / RK3588 等可识别）。
 
-### 外设
+### 外设（深色）
 
-![外设](docs/screenshots/v11/zh_light_periph.png)
+![外设](docs/screenshots/v12/zh_dark_periph.png)
 
 USB、视频、串口、I2C、SPI、网络、存储、音频、GPIO、显示等；可搜索、筛选、串口终端与导出。
 

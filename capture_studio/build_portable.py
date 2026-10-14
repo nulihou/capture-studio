@@ -118,24 +118,39 @@ def main() -> None:
         "ffmpeg.exe and ffprobe.exe are in bin; source DLLs are copied beside them.\n"
         "Connect a local USB camera or any SSH board (KV260, Jetson, Raspberry Pi, Rockchip, …).\n"
         "Keep the whole folder together. Settings and default captures stay beside the EXE.\n"
+        "Chinese user guide: 使用说明.md\n"
         "Source: https://github.com/nulihou/capture-studio\n"
-        "See capture_studio/README.md in the source tree for full instructions.\n",
+        "See the repository root README.md for full instructions.\n",
         encoding="utf-8",
     )
+    # User-facing portable docs only. Do NOT re-introduce:
+    # - BOARD_README.md at bundle root (developer essay; confuses end users)
+    # - 换电脑使用说明.md copied from an outdated PORTABLE_GUIDE without rewrite
+    # Chinese guide is 使用说明.md (kept in sync with PORTABLE_GUIDE.md in the package tree).
+    user_guide = PACKAGE / "使用说明.md"
+    if not user_guide.is_file():
+        user_guide = PACKAGE / "PORTABLE_GUIDE.md"
+    shutil.copy2(user_guide, bundle / "使用说明.md")
+    # Optional short package pointer; full docs live at repo root README.
     shutil.copy2(PACKAGE / "README.md", bundle / "README.md")
+    board_agent_doc = PACKAGE / "docs" / "board_agent.md"
     with ZipFile(DIST / "kv260_agent.zip", "w", compression=ZIP_DEFLATED) as archive:
         for name in BOARD_FILES:
             archive.write(PACKAGE / name, f"capture_studio/{name}")
-        archive.write(PACKAGE / "BOARD_README.md", "BOARD_README.md")
+        # Developer board notes under docs/, not a root BOARD_README that looks like a user manual.
+        if board_agent_doc.is_file():
+            archive.write(board_agent_doc, "docs/board_agent.md")
     for personal in ("board_connection.json", "capture_settings.json", "self_test.json",
                      "connection_self_test.json", "studio_settings.json", "ui_prefs.json", "capture_templates.json"):
         (bundle / personal).unlink(missing_ok=True)
     captured = bundle / "captures"
     if captured.exists():
         shutil.rmtree(captured)
-    (bundle/'连接开发板.cmd').write_text('@echo off\r\ncd /d "%~dp0"\r\nstart "" "%~dp0CaptureStudio.exe" --connect\r\n',encoding='utf-8')
-    shutil.copy2(PACKAGE/'PORTABLE_GUIDE.md',bundle/'换电脑使用说明.md')
-    shutil.copy2(PACKAGE / 'BOARD_README.md', bundle / 'BOARD_README.md')  # v12: lab diagnostics notes stay out of public builds
+    # Optional connect-mode launcher (users can also open CaptureStudio.exe directly).
+    (bundle / "连接开发板.cmd").write_text(
+        '@echo off\r\ncd /d "%~dp0"\r\nstart "" "%~dp0CaptureStudio.exe" --connect\r\n',
+        encoding="utf-8",
+    )
     version = importlib.import_module(PACKAGE.name).__version__
     with ZipFile(DIST / f"CaptureStudio_v{version}_windows_x64.zip", "w",
                  compression=ZIP_DEFLATED, compresslevel=6) as archive:

@@ -103,7 +103,8 @@ class Studio:
             "exposure_mode": "自动", "exposure_absolute": "",
             "power": "不改", "wb": "不改", "focus": "不改",
             "device": "", "pc_device": "", "pc_device_id": "",
-            "auto_connect": "", "wizard_done": "", "theme": "跟随系统", "scene": "",
+            "auto_connect": "", "wizard_done": "", "connect_tip_dismissed": "",
+            "theme": "跟随系统", "scene": "",
         }
         for item in TUNING:
             if item.kind == "int":
@@ -622,8 +623,10 @@ class Studio:
                             self._remember_frame(read_png(stream))
                 except Exception as exc:
                     if not stop.is_set():
+                        detail = str(exc) or type(exc).__name__
                         with self.lock:
-                            self._log(str(exc))
+                            self._log(detail)
+                            self.last_error = f"preview failed: {detail}"
                             self.live = False
 
             threading.Thread(target=pump, daemon=True).start()

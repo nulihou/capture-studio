@@ -131,6 +131,18 @@ UI = {
     "地址": "Host",
     "用户": "User",
     "私钥": "Private Key",
+    "Capture Studio SSH 密钥": "Capture Studio SSH key",
+    "首次连板": "First-time board connect",
+    "不再显示": "Don't show again",
+    "点“查找”扫描本机网段 /24、邻居表与 .local 的 SSH 应答":
+        "Click Discover to scan this PC's /24 subnets, neighbour table, and .local for SSH",
+    "网线直连常出现 169.254：可扫邻居/.local，或给网卡设同网段静态 IP":
+        "Direct cable often yields 169.254: scan neighbours/.local, or set a same-subnet static IP",
+    "也可直接填写开发板 IP 后连接": "Or type the board IP and connect",
+    "登录使用 Capture Studio SSH 密钥（磁盘文件仍为 id_ed25519_kv260）":
+        "Sign-in uses the Capture Studio SSH key (on-disk file stays id_ed25519_kv260)",
+    "界面显示「Capture Studio SSH 密钥」；磁盘文件名仍为 id_ed25519_kv260（兼容旧版）。":
+        "UI shows “Capture Studio SSH key”; on-disk filename stays id_ed25519_kv260 (compatibility).",
     "板端目录": "Board Directory",
     "摄像头序号": "Camera Serial",
     "可留空": "Optional",
@@ -370,9 +382,14 @@ _V7 = {
     "跟随系统": "System", "自动": "Auto", "浅色": "Light", "深色": "Dark", "外观": "Appearance",
     "只对本机所在网段的 22 端口做一次快速连接测试，不登录、不扫其他端口。":
         "Only a quick connect test to port 22 on this PC's subnets — no login, no other ports.",
-    "或手动填写地址": "Or enter an address", "密码（仅新板第一次，用来安装密钥）": "Password (first time on a new board, to install the key)",
+    "或手动填写地址": "Or enter an address",
+    "密码（仅新板第一次，用来安装密钥）": "Password (first time on a new board, to install the key)",
+    "密码（仅新板第一次，用来安装 Capture Studio SSH 密钥）":
+        "Password (first time on a new board, to install the Capture Studio SSH key)",
     "记住密码（保存在 Windows 凭据管理器，不写入文件）": "Remember password (Windows Credential Manager, never written to a file)",
     "之后的登录都用本机 SSH 密钥，一般不需要密码。": "Later sign-ins use this PC's SSH key; normally no password is needed.",
+    "之后的登录都用 Capture Studio SSH 密钥，一般不需要密码。":
+        "Later sign-ins use the Capture Studio SSH key; normally no password is needed.",
     "下次启动时自动连接并打开实时预览（可取消）": "Auto-connect and start live preview on next launch (can cancel)",
     "正在扫描…": "Scanning…", "没有找到，可以手动填写地址": "Nothing found — enter the address manually",
     "请选择或填写开发板地址": "Pick or enter the board address", "一切就绪": "All good", "可以开始，但有几点建议": "Ready, with a few suggestions",
@@ -398,21 +415,42 @@ _V7 = {
     "电脑磁盘空间偏紧": "PC disk space is tight", "录完后及时取回并清理": "Fetch and clean up after recording", "电脑磁盘空间": "PC disk space",
     "开发板温度偏高": "Board running hot", "长时间录制可能降频掉帧，建议加强散热": "Long recordings may throttle and drop frames; improve cooling",
     "开发板温度": "Board temperature", "上次录制无掉帧": "No drops in last recording",
-    "开发板拒绝登录": "Board refused login", "这台电脑的密钥还没装到开发板上。在连接窗口填一次登录密码，软件会自动安装密钥。":
+    "开发板拒绝登录": "Board refused login",
+    "这台电脑的密钥还没装到开发板上。在连接窗口填一次登录密码，软件会自动安装密钥。":
         "This PC's key is not on the board yet. Enter the login password once in Connect and the key is installed automatically.",
+    "这台电脑的 Capture Studio SSH 密钥还没装到开发板上。在连接窗口填一次登录密码，软件会自动安装密钥。":
+        "This PC's Capture Studio SSH key is not on the board yet. Enter the login password once in Connect and the key is installed automatically.",
     "开发板身份变了": "Board identity changed", "开发板重装过系统或换了一块板。确认无误后，在 known_hosts 里删除这台主机的旧记录再连。":
         "The board was reinstalled or replaced. If expected, remove its old entry from known_hosts and reconnect.",
     "找不到这个地址": "Address not found", "检查开发板地址是否填错，或用“查找”自动搜索局域网。": "Check the address, or use Find to search the LAN.",
     "开发板拒绝连接": "Board refused connection", "开发板开机了但 SSH 服务没开。等开机完成，或在板上启动 ssh 服务。": "The board is up but SSH isn't running. Wait for boot or start sshd.",
     "网络不通": "Network unreachable", "电脑和开发板不在同一网络。检查网线/Wi-Fi，以及两边的 IP 网段。": "PC and board are not on the same network. Check cable/Wi-Fi and subnets.",
     "连接超时": "Connection timed out", "开发板可能没开机、网线松了或 IP 变了。检查后点“重试”。": "The board may be off, unplugged, or on a new IP. Check, then Retry.",
+    "SSH 已断开": "SSH disconnected",
+    "和开发板的 SSH 连接断了。检查网线/供电，确认板还在线，再点“重试”重新连接。":
+        "SSH to the board dropped. Check cable/power, confirm the board is online, then Retry.",
     "磁盘满了": "Disk full", "清理输出文件夹或换一个空间更大的位置。": "Clean the output folder or choose a bigger location.",
     "摄像头被占用": "Camera busy", "关闭其他正在用摄像头的程序（含实时预览），再试一次。": "Close other programs using the camera (including live preview) and retry.",
     "找不到摄像头": "Camera not found", "重新插拔摄像头，换一个 USB 口，然后点“扫描”。": "Replug the camera, try another USB port, then Scan.",
+    "帧率异常": "Abnormal frame rate",
+    "实际帧率偏低或有掉帧。检查 USB 线与供电，改用 MJPEG，或降低分辨率/帧率后再录。":
+        "Frame rate is low or dropping. Check USB cable and power; try MJPEG or lower resolution/fps.",
+    "取回失败": "Fetch failed",
+    "会话文件没能完整取回。确认开发板仍在线、磁盘有空间，再点“重试”或重新取回。":
+        "Session files did not fetch completely. Confirm the board is online and disk has space, then Retry.",
+    "校验失败": "Verify failed",
+    "会话校验没通过。确认本机 ffprobe 可用，会话文件完整，再点“校验”重试。":
+        "Session verify failed. Confirm ffprobe works and the session files are complete, then Verify again.",
+    "预览失败": "Preview failed",
+    "预览画面没能打开。确认已连接、摄像头可用，关闭占用摄像头的程序后点“重试”。":
+        "Preview did not open. Confirm you are connected, the camera works, close other apps using it, then Retry.",
     "缺少 ffmpeg": "ffmpeg missing", "在设置里指定 ffmpeg/ffprobe 的位置，或把它们放到软件的 bin 文件夹里。": "Set ffmpeg/ffprobe in Settings, or put them in the app's bin folder.",
     "开发板程序版本较旧": "Board agent is outdated", "重新连接一次，软件会自动同步板端程序。": "Reconnect once; the agent is synced automatically.",
     "缺少 OpenSSH": "OpenSSH missing", "在 Windows“可选功能”里安装“OpenSSH 客户端”。": "Install “OpenSSH Client” in Windows Optional Features.",
     "操作没有完成": "Operation did not complete", "可以重试；如果反复出现，请复制诊断包发给维护者。": "You can retry; if it keeps happening, copy the diagnostics and send them to support.",
+    "缺少 OpenSSH 或 Capture Studio SSH 密钥": "OpenSSH or the Capture Studio SSH key is missing",
+    "缺少 Capture Studio SSH 密钥": "Capture Studio SSH key missing",
+    "没能在这台电脑上生成 Capture Studio SSH 密钥。": "Could not create the Capture Studio SSH key on this PC.",
     "串口或波特率无效": "Invalid port or baud rate", "十六进制格式不对，例如：55 AA 01": "Invalid hex, e.g. 55 AA 01", "模板名称不能为空": "Template name is required",
     "实例": "Instance", "回放": "Playback", "端口": "Port", "硬件 ID": "Hardware ID", "类别": "Class", "厂商": "Vendor", "名称": "Name", "序列号": "Serial", "芯片": "Chip",
 }
@@ -534,3 +572,12 @@ _V123 = {
 }
 UI.update({k: v for k, v in _V123.items() if k not in UI})
 MESSAGES.update({k: v for k, v in _V123.items() if k not in MESSAGES})
+
+_V124 = {
+    "网线直连时电脑常拿到 169.254 地址：可用“查找”扫邻居表与 .local，或给网卡设与开发板同网段的静态 IP。":
+        "On a direct cable the PC often gets a 169.254 address: use Discover for neighbours/.local, or set a same-subnet static IP.",
+    "也可直接填写开发板 IP（含 169.254.x.x）再连接。":
+        "Or type the board IP (including 169.254.x.x) and connect.",
+}
+UI.update({k: v for k, v in _V124.items() if k not in UI})
+MESSAGES.update({k: v for k, v in _V124.items() if k not in MESSAGES})

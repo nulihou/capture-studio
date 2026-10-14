@@ -1,31 +1,98 @@
-# 换电脑使用全部现有功能
+# Capture Studio 便携版使用说明（Windows）
 
-适用Windows x64。完整解压`CaptureStudio_windows_x64.zip`到可写目录（例如D:\CaptureStudio），保留CaptureStudio.exe、_internal、bin和说明文件。不要只复制EXE。新版包含电脑采集、KV260连接、单帧预热、连续预览、实际取流FPS、录制/停止/取回/校验，不需要安装Python或另装FFmpeg。
+适用 **Windows x64** 便携包（例如 `CaptureStudio_v0.12.4_windows_x64.zip`）。
 
-## 电脑直连
+把压缩包**完整解压**到可写目录（如 `D:\CaptureStudio`），保留 `CaptureStudio.exe`、`_internal`、`bin` 和说明文件。不要只复制 EXE。本包自带运行时与 FFmpeg，一般**无需安装 Python**。
 
-摄像头插新电脑，双击CaptureStudio.exe，在“电脑采集”刷新设备并重新选择摄像头。选择本机数据目录，预览确认后开始录制，结束点停止并校验。Windows相机驱动和USB接口需可用；KV260连续预览/FPS显示功能不会自动变成电脑端实时功能。
+产品名：**Capture Studio**。支持本机 USB 摄像头，以及通过 SSH 连接的各类开发板（不限某一厂商）。
 
-## 开发板直连
+---
 
-也可以直接打开CaptureStudio.exe，切到“KV260采集”，点击“自动连接/查设备”。地址和令牌留空时，程序使用已保存的SSH配置；这台电脑已有默认`~/.ssh/id_ed25519_kv260`私钥时可直接尝试当前开发板地址。从别的电脑拷来的密钥路径如果在本机不存在，会丢掉并重新查找本机密钥；仍然没有密钥就弹出连接设置。连接成功后自动填写本地隧道地址、令牌和摄像头节点，无需手动复制令牌。序号能对上时按序号选择主图像节点，拔插后节点号可以变。板上只有一只USB摄像头、但序号和保存值不同时，自动选用这一只并在界面写明实际序号；多于一只且序号对不上时不猜测。“连接设置”可修改IP和密钥；尚不支持发现未知IP，IP改变需要更新配置。自动连接的初始采集模式为MJPEG 640×480、请求30fps，仍需预览确认和实测FPS。
+## 快速开始
 
-电脑采集在启动时用安装包里的FFmpeg枚举DirectShow摄像头。只有一只时自动选中；多只时需要从列表里选。中文系统上的设备名按系统编码读取，避免选中后打不开。
+1. 解压后双击 **`CaptureStudio.exe`**。
+2. **本机摄像头**：在「电脑采集」刷新设备、选择摄像头与数据目录，预览确认后开始录制。
+3. **开发板**：在「开发板采集」或连接向导中查找/填写板端地址，用 Capture Studio SSH 密钥登录，连接成功后选摄像头、预览、录制、取回与校验。
 
-相机仍插KV260，电脑和开发板网络互通。双击“连接开发板.cmd”，填写IP、SSH用户名、选择新电脑上的SSH私钥，保留正确板端目录和相机序号HHW001，点保存并连接。程序自动启动已部署代理、建SSH隧道、读令牌到内存、选择主图像节点并打开平台。连接配置可编辑，取消或失败后重新双击即可。
+可选入口：同目录下的 **`连接开发板.cmd`** 会以连接模式启动程序（等价于 `CaptureStudio.exe --connect`）。日常也可直接开主程序。
 
-新电脑需Windows OpenSSH客户端，终端运行`ssh -V`确认；若缺少，在Windows设置→可选功能安装“OpenSSH客户端”。首次使用该电脑，先终端运行`ssh -i <私钥路径> ubuntu@<开发板IP>`，核对开发板主机指纹后接受，再退出；启动入口不会跳过主机身份校验。私钥带口令时需预先用ssh-agent加载，否则自动连接会报错。
+---
 
-SSH密钥需要开发板授权。推荐新电脑用`ssh-keygen -t ed25519`生成自己的密钥，通过现有可信连接将新的`.pub`内容追加到板端用户的`~/.ssh/authorized_keys`。也可由用户自行安全迁移已有私钥并在窗口选择；本包不包含私钥、连接令牌、已有数据或个人配置。不要把私钥放进给别人分发的压缩包。
+## 多板发现（局域网）
 
-板端包已部署则直接连接；首次安装请解压配套kv260_agent.zip，参见BOARD_README.md。实时预览和FPS统计还需板端`python3-gi`、GStreamer1.x的Python绑定及jpegdec/videorate/pngenc/appsink等插件；Windows便携包不会替代Linux板端依赖。当前KV260已经具备这些依赖。
+「查找开发板」会扫描本机可达的 SSH（仅探测 **TCP 22** 横幅，不登录、不扫其他端口）：
 
-## 使用与限制
+- 每块真实网卡所在 **/24**（最多 3 块网卡）
+- Windows **邻居表**中已出现的地址（含直连时的 **169.254** 链路本地地址）
+- 常见 **`.local`** 名称（如 ubuntu、raspberrypi、jetson、kv260 等）；若环境装了 zeroconf，还可浏览 `_ssh._tcp`
 
-KV260实时预览中，实际取流FPS是预览限速前buffer到达率；新版持续传输预览最多30fps，并显示板端输出和界面刷新实际帧率。当前HHW001、640×480/30实板与桌面验收见PREVIEW_30FPS_20261012.md。开始采集自动停止预览，目前不支持录制中同步画面或录制实时FPS。请求30fps不保证任意电脑或网络实测30fps。
+结果会按厂商/类型标注（如 Raspberry Pi、NVIDIA、Rockchip、Xilinx 等）。**只有一块开发板时自动选中；多块时请手动选择。** 找不到时可手动填写 IP，并用「测试这个 IP」核对。程序**不会**改动本机网络设置；直连无 DHCP 时界面会给出文字指引。
 
-当前防hub复位策略为开发板USB链临时power/control=on，重启后需核查；该策略与电脑软件迁移是两件事。需要时参见HUB_RESET_TRIGGER_20261011.md，勿把电源策略当作30fps修复。
+---
 
-开始前先做短录→停止→取回→校验，核对新电脑磁盘空间和网络。不要同时让两台电脑控制同一摄像头。换电脑后重新选择数据目录；移动整套平台时，软件保存的内部工具与默认数据路径使用相对位置。
+## 本机 USB 与 SSH 开发板
 
-本包在当前Windows电脑、复制到不同路径且清除开发环境PATH后完成自检；没有第二台实体电脑的实际验收，跨电脑相机驱动、密钥授权、网络与性能仍需上述短录验证。
+| 场景 | 做法 |
+|------|------|
+| 摄像头插在这台电脑 | 「电脑采集」→ 刷新 → 选设备。仅一只时通常自动选中。 |
+| 摄像头插在开发板上 | 电脑与板网络互通 → SSH 连接 → 选板端摄像头节点 → 预览/录制/取回。 |
+
+支持任意能 SSH 登录的 Linux 开发板；板端需已部署配套 agent（见开发者文档）。Windows 便携包**不能**代替板端的 Python/GStreamer 等依赖。
+
+---
+
+## Capture Studio SSH 密钥
+
+界面显示为 **「Capture Studio SSH 密钥」**。
+
+磁盘上的私钥文件名仍为：
+
+```text
+%USERPROFILE%\.ssh\id_ed25519_kv260
+```
+
+这是为了兼容已经装过该公钥的开发板，**请勿随意改名**。首次在新板上可用登录密码一次性安装公钥；之后一般只需密钥。
+
+本机还需 **Windows OpenSSH 客户端**（设置 → 可选功能；终端运行 `ssh -V` 确认）。首次连某块板时，建议先在终端用同一密钥手动 SSH 一次并接受主机指纹。私钥带口令时请先用 ssh-agent 加载。
+
+**不要把私钥放进分发给别人的压缩包。** 便携包本身不含私钥、令牌或个人配置。
+
+---
+
+## 检查更新
+
+在 **设置** 页可点 **「检查更新」**。也可开启 **「启动时检查更新」**（默认开启：启动后后台检查，每天最多一次，失败不打扰）。
+
+有新版本时会提示说明与下载入口（打开浏览器到发布页/zip）；程序**不会**自动覆盖本机文件。离线或无法访问 GitHub 时会显示失败原因。
+
+---
+
+## 换电脑时注意
+
+1. 复制**整个**便携目录，不要只拷 EXE。
+2. 在新电脑上重新选数据目录、重新选摄像头。
+3. 开发板连接：确保本机有 Capture Studio SSH 密钥，且板端已授权该公钥；IP 变了请更新连接配置。
+4. 先做一次短录 → 停止 → 取回 → 校验，确认磁盘与网络正常。
+5. 不要让两台电脑同时控制同一块板/同一摄像头。
+
+---
+
+## 包内文件（用户侧）
+
+| 文件 | 说明 |
+|------|------|
+| `CaptureStudio.exe` | 主程序 |
+| `_internal/`、`bin/` | 运行时与 FFmpeg，勿删 |
+| `使用说明.md` | 本说明（中文） |
+| `README.txt` | 极简英文提示 |
+| `连接开发板.cmd` | 可选：连接模式启动 |
+| `kv260_agent.zip`（若随包提供） | 板端 agent；安装细节见源码树 `docs/board_agent.md` |
+
+完整开发与源码说明见仓库根目录 README：  
+https://github.com/nulihou/capture-studio
+
+---
+
+## English (short)
+
+**Capture Studio** portable for Windows x64: unzip the whole folder, run `CaptureStudio.exe`. Use local USB cameras or SSH boards. LAN discovery probes SSH on port 22 only (`/24` + neighbor table including 169.254 + common `.local` names). UI label **Capture Studio SSH key**; on-disk file remains `~/.ssh/id_ed25519_kv260`. Optional `连接开发板.cmd` starts connect mode. Check for updates in Settings. Do not redistribute private keys with the zip.

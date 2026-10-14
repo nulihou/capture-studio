@@ -170,6 +170,10 @@ QCheckBox#smallCheck { font-size: 12px; color: #6E6E73; spacing: 6px; }
 QCheckBox#smallCheck::indicator { width: 13px; height: 13px; }
 QLabel#toast { background: rgba(29, 29, 31, 0.92); color: #FFFFFF; border-radius: 12px; padding: 10px 18px; font-size: 13px; font-weight: 500; }
 QLabel#tips { color: #86868B; font-size: 12px; background: transparent; }
+QFrame#connectTip { background: #F7F7F9; border: 1px solid #ECECF0; border-radius: 10px; }
+QLabel#connectTipTitle { font-size: 12px; font-weight: 600; color: #3A3A3C; background: transparent; }
+QPushButton#tipDismiss { background: transparent; border: none; color: #86868B; font-size: 12px; padding: 2px 6px; }
+QPushButton#tipDismiss:hover { color: #1D1D1F; }
 """
 
 
@@ -806,8 +810,11 @@ class ConnectDialog(QDialog):
         title = _label("连接开发板", "title")
         layout.addWidget(title)
         layout.addSpacing(8)
+        self.tip = self._build_tip()
+        layout.addWidget(self.tip)
+        layout.addSpacing(4)
         for key, caption in (
-            ("host", "地址"), ("user", "用户"), ("key", "私钥"),
+            ("host", "地址"), ("user", "用户"), ("key", "Capture Studio SSH 密钥"),
             ("board_root", "板端目录"), ("serial", "摄像头序号"),
         ):
             edit = _edit()
@@ -850,8 +857,42 @@ class ConnectDialog(QDialog):
         self.go.clicked.connect(self.accept)
         self.find.clicked.connect(self._find)
 
+    def _build_tip(self) -> QFrame:
+        """Compact first-connect one-pager; dismissed state remembered in settings."""
+        frame = QFrame()
+        frame.setObjectName("connectTip")
+        box = QVBoxLayout(frame)
+        box.setContentsMargins(12, 10, 12, 10)
+        box.setSpacing(4)
+        head = QHBoxLayout()
+        head.setContentsMargins(0, 0, 0, 0)
+        title = QLabel(tr("首次连板"))
+        title.setObjectName("connectTipTitle")
+        head.addWidget(title, 1)
+        dismiss = QPushButton(tr("不再显示"))
+        dismiss.setObjectName("tipDismiss")
+        dismiss.setCursor(Qt.CursorShape.PointingHandCursor)
+        dismiss.clicked.connect(self._dismiss_tip)
+        head.addWidget(dismiss)
+        box.addLayout(head)
+        bullets = [
+            "• " + tr("点“查找”扫描本机网段 /24、邻居表与 .local 的 SSH 应答"),
+            "• " + tr("网线直连常出现 169.254：可扫邻居/.local，或给网卡设同网段静态 IP"),
+            "• " + tr("也可直接填写开发板 IP 后连接"),
+            "• " + tr("登录使用 Capture Studio SSH 密钥（磁盘文件仍为 id_ed25519_kv260）"),
+        ]
+        body = QLabel("\n".join(bullets))
+        body.setObjectName("tips")
+        body.setWordWrap(True)
+        box.addWidget(body)
+        return frame
+
+    def _dismiss_tip(self) -> None:
+        STUDIO.update_settings({"connect_tip_dismissed": "1"})
+        self.tip.hide()
+
     def _choose_key(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, tr("私钥"))
+        path, _ = QFileDialog.getOpenFileName(self, tr("Capture Studio SSH 密钥"))
         if path:
             self.fields["key"].setText(path)
 
@@ -869,6 +910,8 @@ class ConnectDialog(QDialog):
             text = str(settings.get(key) or "")
             if widget.text() != text:
                 widget.setText(text)
+        dismissed = str(settings.get("connect_tip_dismissed") or "") in ("1", "True", "true")
+        self.tip.setVisible(not dismissed)
 
 
 class StudioWindow(V7Mixin, QWidget):
@@ -2095,6 +2138,9 @@ class StudioWindow(V7Mixin, QWidget):
         self._motion_slot.addSpacing(8)
         self._motion_slot.addWidget(self.update_pill)  # status pill shares the folder row; the toggle row stays 18 px
         layout.addLayout(update_row)
+        key_note = _label("界面显示「Capture Studio SSH 密钥」；磁盘文件名仍为 id_ed25519_kv260（兼容旧版）。", "tips")
+        key_note.setWordWrap(True)
+        layout.addWidget(key_note)
         layout.setSpacing(max(6, layout.spacing() - 2))  # v12: make room for the update toggle without a scrollbar
         self._update_bridge = _UpdateBridge()
         self._update_bridge.done.connect(self._update_finished)

@@ -30,7 +30,7 @@ BoardClient, CaptureDesktop = _desktop.BoardClient, _desktop.CaptureDesktop
 def open_connection(args):
     ssh = shutil.which('ssh')
     if not ssh or not args.ssh_key.is_file():
-        raise RuntimeError('OpenSSH and the configured KV260 SSH key are required')
+        raise RuntimeError('缺少 OpenSSH 或 Capture Studio SSH 密钥')
     ssh_args = [ssh, '-i', str(args.ssh_key), '-o', 'BatchMode=yes',
                 '-o', 'StrictHostKeyChecking=accept-new',
                 '-o', 'ConnectTimeout=10', f'{args.user}@{args.host}']

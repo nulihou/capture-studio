@@ -590,7 +590,7 @@ try:
     check("v11: health uses icons, no text marks", len(labels) == 3 and not any(m in texts for m in ("✓", "✕", ">!<")))
     hd.close()
     check("v11: reduced-motion setting present", hasattr(win, "reduced_motion"))
-    check("v11: version 0.12.3", importlib.import_module(pkg).__version__ == "0.12.3")
+    check("v11: version 0.12.4", importlib.import_module(pkg).__version__ == "0.12.4")
     mo.set_reduced(True)
 except Exception:
     results.append("ERROR  " + traceback.format_exc())

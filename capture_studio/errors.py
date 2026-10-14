@@ -9,14 +9,14 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
-# (regex, title, advice, retry)
+# (regex, title, advice, retry) — more specific patterns first
 RULES = [
     (r"could not open port.*(PermissionError|Access is denied|拒绝访问)", "串口被占用",
      "这个串口正被其他程序（或另一个终端窗口）使用。关闭它后再打开。", True),
     (r"could not open port.*(FileNotFoundError|cannot find|找不到指定)", "找不到这个串口",
      "串口可能已拔出或编号变了。重新插好后点“刷新”，再选一次端口。", True),
     (r"Permission denied \(publickey|公钥还没有装到", "开发板拒绝登录",
-     "这台电脑的密钥还没装到开发板上。在连接窗口填一次登录密码，软件会自动安装密钥。", True),
+     "这台电脑的 Capture Studio SSH 密钥还没装到开发板上。在连接窗口填一次登录密码，软件会自动安装密钥。", True),
     (r"Host key verification failed|REMOTE HOST IDENTIFICATION HAS CHANGED", "开发板身份变了",
      "开发板重装过系统或换了一块板。确认无误后，在 known_hosts 里删除这台主机的旧记录再连。", False),
     (r"Could not resolve hostname|Name or service not known|getaddrinfo", "找不到这个地址",
@@ -25,12 +25,35 @@ RULES = [
      "开发板开机了但 SSH 服务没开。等开机完成，或在板上启动 ssh 服务。", True),
     (r"No route to host|Network is unreachable|网络不可达", "网络不通",
      "电脑和开发板不在同一网络。检查网线/Wi-Fi，以及两边的 IP 网段。", True),
+    (r"Connection reset|Broken pipe|Connection closed by|kex_exchange_identification|"
+     r"SSH.*(disconnect|closed|abort)|Connection aborted|远程主机强迫关闭",
+     "SSH 已断开",
+     "和开发板的 SSH 连接断了。检查网线/供电，确认板还在线，再点“重试”重新连接。", True),
     (r"timed out|Timeout|超时", "连接超时",
      "开发板可能没开机、网线松了或 IP 变了。检查后点“重试”。", True),
     (r"No space left on device|磁盘空间不足", "磁盘满了", "清理输出文件夹或换一个空间更大的位置。", False),
     (r"Device or resource busy|设备忙", "摄像头被占用", "关闭其他正在用摄像头的程序（含实时预览），再试一次。", True),
-    (r"Could not find video device|Could not enumerate video devices|I/O error|No such device|未发现摄像头", "找不到摄像头",
+    (r"Could not find video device|Could not enumerate video devices|I/O error|No such device|"
+     r"未发现摄像头|no camera|Configured video node unavailable",
+     "找不到摄像头",
      "重新插拔摄像头，换一个 USB 口，然后点“扫描”。", True),
+    (r"掉帧|疑似掉帧|frame drop|frame rate abnormal|possible.?gap|"
+     r"\bfps\b.{0,20}((too )?low|abnormal|drop)|unique.?frame|"
+     r"低于长录所需|帧率关口|全程 .*\bfps\b.*门槛",
+     "帧率异常",
+     "实际帧率偏低或有掉帧。检查 USB 线与供电，改用 MJPEG，或降低分辨率/帧率后再录。", True),
+    (r"fetch failed|could not fetch|download failed|checksum mismatch|"
+     r"board session has no recorded|board session must be stopped|取回失败",
+     "取回失败",
+     "会话文件没能完整取回。确认开发板仍在线、磁盘有空间，再点“重试”或重新取回。", True),
+    (r"verify failed|integrity failed|ffprobe failed|ffprobe stream|"
+     r"严格解码失败|校验未通过|无法解码样帧|校验失败",
+     "校验失败",
+     "会话校验没通过。确认本机 ffprobe 可用，会话文件完整，再点“校验”重试。", True),
+    (r"preview failed|preview response is not PNG|preview frame|preview process|preview is not|"
+     r"board did not return a PNG|无法取得.*样帧",
+     "预览失败",
+     "预览画面没能打开。确认已连接、摄像头可用，关闭占用摄像头的程序后点“重试”。", True),
     (r"ffmpeg not found|ffprobe not found|找不到 ffmpeg", "缺少 ffmpeg",
      "在设置里指定 ffmpeg/ffprobe 的位置，或把它们放到软件的 bin 文件夹里。", False),
     (r"Board returned 404|not found", "开发板程序版本较旧", "重新连接一次，软件会自动同步板端程序。", True),

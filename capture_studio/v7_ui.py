@@ -84,6 +84,9 @@ class Wizard(QDialog):
         rule = _lbl(discovery.RULE_TEXT + "不登录、不扫其他端口。", "meta")
         rule.setWordWrap(True)
         box.addWidget(rule)
+        tip = _lbl("也可直接填写开发板 IP 后连接", "tips")
+        tip.setWordWrap(True)
+        box.addWidget(tip)
         row = QHBoxLayout()
         self.scan_button = _btn("扫描局域网", True)
         self.scan_button.clicked.connect(self.start_scan)
@@ -116,14 +119,14 @@ class Wizard(QDialog):
         box.addWidget(_lbl("用户"))
         self.user = QLineEdit("ubuntu")
         box.addWidget(self.user)
-        box.addWidget(_lbl("密码（仅新板第一次，用来安装密钥）"))
+        box.addWidget(_lbl("密码（仅新板第一次，用来安装 Capture Studio SSH 密钥）"))
         self.password = QLineEdit()
         self.password.setEchoMode(QLineEdit.EchoMode.Password)
         box.addWidget(self.password)
         self.remember = QCheckBox(tr("记住密码（保存在 Windows 凭据管理器，不写入文件）"))
         self.remember.setEnabled(credstore.available())
         box.addWidget(self.remember)
-        box.addWidget(_lbl("之后的登录都用本机 SSH 密钥，一般不需要密码。", "meta"))
+        box.addWidget(_lbl("之后的登录都用 Capture Studio SSH 密钥，一般不需要密码。", "meta"))
         box.addStretch(1)
         self.steps.addWidget(two)
         # step 3: finish
@@ -528,6 +531,10 @@ class V7Mixin:
         box = QHBoxLayout(banner)
         box.setContentsMargins(14, 10, 10, 10)
         box.setSpacing(10)
+        self.banner_icon = QLabel()
+        self.banner_icon.setObjectName("glyph")
+        self.banner_icon.setFixedSize(20, 20)
+        box.addWidget(self.banner_icon, 0, Qt.AlignmentFlag.AlignTop)
         texts = QVBoxLayout()
         texts.setSpacing(2)
         self.banner_title = QLabel()
@@ -704,6 +711,10 @@ class V7Mixin:
     # ----- friendly errors
     def _banner_show(self, kind: str, title: str, text: str, buttons: tuple[str, ...]) -> None:
         self._banner_kind = kind
+        role = {"error": "error", "auto": "info"}.get(kind, "warn")
+        name = {"error": "st.error", "auto": "st.info"}.get(kind, "st.warn")
+        self.banner_icon.setPixmap(icons.pixmap(name, 20, role))
+        self.banner_icon.setVisible(True)
         self.banner_title.setText(title)
         self.banner_text.setText(text)
         for key, button in self.banner_buttons.items():

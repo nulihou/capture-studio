@@ -64,7 +64,7 @@ def configure(parent=None, on_connect=None):
         row=1, column=0, columnspan=3, sticky="w", pady=(0, 8))
     values = {}
     for row, (name, label) in enumerate([
-            ("host", "地址"), ("user", "用户"), ("key", "私钥"),
+            ("host", "地址"), ("user", "用户"), ("key", "Capture Studio SSH 密钥"),
             ("board_root", "板端目录"), ("serial", "摄像头序号")], 2):
         values[name] = tk.StringVar(value=defaults.get(name, ""))
         ttk.Label(panel, text=label, style="Field.TLabel").grid(
@@ -75,7 +75,7 @@ def configure(parent=None, on_connect=None):
         row=7, column=0, sticky="w", padx=(0, 16), pady=8)
     ttk.Entry(panel, textvariable=password, width=42, show="*").grid(row=7, column=1, sticky="ew")
     def choose():
-        path = filedialog.askopenfilename(title='选择SSH私钥（不是.pub公钥）')
+        path = filedialog.askopenfilename(title='选择 Capture Studio SSH 密钥（不是.pub公钥）')
         if path: values['key'].set(path)
     ttk.Button(panel, text="选择", command=choose, style="Quiet.TButton").grid(row=4, column=2, padx=(8, 0))
     def search(replace=False):
@@ -102,7 +102,7 @@ def configure(parent=None, on_connect=None):
         if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.:-]*',data['host']) or not re.fullmatch(r'[A-Za-z0-9_][A-Za-z0-9_.-]*',data['user']):
             messagebox.showerror('连接设置','请填写有效主机名/IP和用户名。'); return
         if not Path(data['key']).is_file() or data['key'].endswith('.pub'):
-            messagebox.showerror('SSH密钥','请选择这台电脑的SSH私钥，公钥需已添加到开发板。'); return
+            messagebox.showerror('Capture Studio SSH 密钥','请选择这台电脑的 Capture Studio SSH 密钥，公钥需已添加到开发板。'); return
         if not data['board_root'].startswith('/'):
             messagebox.showerror('连接设置','板端目录需是 Linux 绝对路径。'); return
         config_file.write_text(json.dumps(data,indent=2,ensure_ascii=False),encoding='utf-8')

@@ -19,19 +19,19 @@ Or double-click `capture_studio\Start-CaptureStudio.cmd` (legacy names `Start-KV
 
 Run: `python -m capture_studio`
 
-## Interface (v0.12)
+## Interface (v0.12.4)
 
 Sidebar: Test, PC, Board, Peripherals, Sessions, Settings.
 
-### Camera test
+### Camera test (dark)
 
-![Camera test](docs/screenshots/v11/en_light_lab.png)
+![Camera test](docs/screenshots/v12/en_dark_lab.png)
 
 Shortcuts: Space record, L live preview, P one frame, F **Large view**, H health check.
 
-### Board
+### Board (dark)
 
-![Board](docs/screenshots/v11/en_light_board.png)
+![Board](docs/screenshots/v12/en_dark_board.png)
 
 Discovery (also explained in the connection wizard):
 
@@ -43,9 +43,9 @@ Discovery (also explained in the connection wizard):
 
 Auto-select: one board → select it; several → pick manually; a single non-board SSH host → select with a warning. Multi-device networks are never silently forced to an Xilinx address.
 
-### Peripherals
+### Peripherals (dark)
 
-![Peripherals](docs/screenshots/v11/en_light_periph.png)
+![Peripherals](docs/screenshots/v12/en_dark_periph.png)
 
 ## Requirements
 

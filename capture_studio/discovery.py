@@ -452,3 +452,13 @@ def guidance(adapters: list[dict[str, Any]]) -> list[str]:
             tips.append(f"有线网卡“{name}”（{ips[0]}）没有默认网关，可能是直连。已按 /24 扫描它所在的网段；"
                         "如果开发板用的是其他网段的静态 IP，请填写它的 IP 并点“测试这个 IP”。")
     return tips
+
+
+def direct_cable_tips(adapters: list[dict[str, Any]] | None = None) -> list[str]:
+    """Alias for guidance(); static one-pager bullets when adapters is omitted."""
+    if adapters is None:
+        return [
+            "网线直连时电脑常拿到 169.254 地址：可用“查找”扫邻居表与 .local，或给网卡设与开发板同网段的静态 IP。",
+            "也可直接填写开发板 IP（含 169.254.x.x）再连接。",
+        ]
+    return guidance(adapters)

@@ -771,7 +771,7 @@ class CaptureDesktop(tk.Tk):
         from .portable_connect import connection_settings
         settings = connection_settings()
         if not settings.get("key") or not Path(str(settings.get("key"))).is_file():
-            self.lab_watch_var.set("缺少密钥")
+            self.lab_watch_var.set("缺少 Capture Studio SSH 密钥")
             return
         self.lab_watch_var.set("正在连接 " + str(settings.get("host") or ""))
         self._auto_connect_board(quiet=True)
@@ -1129,7 +1129,7 @@ class CaptureDesktop(tk.Tk):
             if not quiet:
                 self._configure_board()
             else:
-                self.lab_watch_var.set("缺少密钥")
+                self.lab_watch_var.set("缺少 Capture Studio SSH 密钥")
             return
         if not settings.get('host') and quiet:
             self.lab_watch_var.set("缺少地址")

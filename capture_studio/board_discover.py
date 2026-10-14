@@ -114,8 +114,8 @@ def ensure_ssh_key(home: Path, runner=None) -> Path:
     run = runner or subprocess.run
     result = run(command, capture_output=True, text=True, timeout=20)
     if getattr(result, "returncode", 1) != 0 or not path.is_file():
-        detail = getattr(result, "stderr", "") or "ssh-keygen 没有生成私钥。"
-        raise RuntimeError("没能在这台电脑上生成 SSH 私钥。" + str(detail)[-200:])
+        detail = getattr(result, "stderr", "") or "ssh-keygen 没有生成 Capture Studio SSH 密钥。"
+        raise RuntimeError("没能在这台电脑上生成 Capture Studio SSH 密钥。" + str(detail)[-200:])
     return path
 
 
