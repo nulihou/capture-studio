@@ -138,8 +138,23 @@ class BoardClient:
             raise RuntimeError(f"board preview failed: {detail}") from exc
 
 
+_DSHOW_NAME = re.compile(r'\]\s+"([^"]+)"(?:\s+\(([^)]+)\))?\s*$')
+_DSHOW_ALT = re.compile(r'Alternative name "([^"]+)"')
+_DSHOW_VID = re.compile(r"vid_([0-9a-fA-F]{4})&pid_([0-9a-fA-F]{4})", re.I)
+
+
 def parse_dshow_devices(stderr: str) -> list[str]:
     names: list[str] = []
+    for item in parse_dshow_cameras(stderr):
+        if item["name"] not in names:
+            names.append(item["name"])
+    return names
+
+
+def parse_dshow_cameras(stderr: str) -> list[dict[str, str]]:
+    """Video devices with the DirectShow name ffmpeg records, plus VID:PID when advertised."""
+    cameras: list[dict[str, str]] = []
+    pending: dict[str, str] | None = None
     in_video = False
     for line in stderr.splitlines():
         if "DirectShow video devices" in line:
@@ -147,14 +162,27 @@ def parse_dshow_devices(stderr: str) -> list[str]:
             continue
         if "DirectShow audio devices" in line:
             in_video = False
-        if "Alternative name" in line:
+            pending = None
             continue
-        match = re.search(r'\]\s+"([^"]+)"(?:\s+\(([^)]+)\))?\s*$', line)
+        alternative = _DSHOW_ALT.search(line)
+        if alternative and pending is not None:
+            pending["alternative"] = alternative.group(1)
+            found = _DSHOW_VID.search(alternative.group(1))
+            if found:
+                pending["vid"], pending["pid"] = found.group(1).lower(), found.group(2).lower()
+            continue
+        match = _DSHOW_NAME.search(line)
         if match and (match.group(2) == "video" or
                       (in_video and match.group(2) not in ("audio", "none"))):
-            if match.group(1) not in names:
-                names.append(match.group(1))
-    return names
+            pending = {"name": match.group(1), "vid": "", "pid": "", "alternative": ""}
+            cameras.append(pending)
+    names = [item["name"] for item in cameras]
+    for item in cameras:
+        ident = f"{item['vid']}:{item['pid']}" if item["vid"] else ""
+        item["label"] = f"{item['name']} · {ident}" if ident else item["name"]
+        duplicated = names.count(item["name"]) > 1 and bool(item["alternative"])
+        item["value"] = item["alternative"] if duplicated else item["name"]
+    return cameras
 
 
 def decode_dshow_text(data: bytes) -> str:
@@ -173,9 +201,13 @@ def decode_dshow_text(data: bytes) -> str:
 
 
 def list_dshow_devices(ffmpeg: Path) -> list[str]:
+    return [item["name"] for item in list_dshow_cameras(ffmpeg)]
+
+
+def list_dshow_cameras(ffmpeg: Path) -> list[dict[str, str]]:
     result = subprocess.run([str(ffmpeg), "-hide_banner", "-list_devices", "true", "-f", "dshow",
                              "-i", "dummy"], capture_output=True, timeout=15)
-    return parse_dshow_devices(decode_dshow_text(result.stderr or b""))
+    return parse_dshow_cameras(decode_dshow_text(result.stderr or b""))
 
 
 class CaptureDesktop(tk.Tk):

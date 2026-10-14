@@ -1,6 +1,5 @@
 """Start the desktop application with ``python -m capture_studio``."""
 
-from .desktop import main
-
+from .window import main
 
 main()

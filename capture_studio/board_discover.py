@@ -1,7 +1,9 @@
-"""Find a new KV260 on the local network and create this computer's SSH key."""
+"""Find a development board on the local network and create this computer's SSH key."""
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+import ipaddress
+import os
 import re
 import socket
 import subprocess
@@ -9,9 +11,35 @@ from pathlib import Path
 
 
 XILINX_OUI = "000a35"
+FAKE_IP = ipaddress.IPv4Network("198.18.0.0/15")  # Clash/Meta fake-ip and the benchmarking range
 IPV4 = re.compile(r"\d{1,3}(?:\.\d{1,3}){3}")
 ARP_ROW = re.compile(
     r"(\d{1,3}(?:\.\d{1,3}){3})\s+([0-9a-fA-F]{2}(?:[:-][0-9a-fA-F]{2}){5})")
+VIRTUAL_ADAPTER = re.compile(
+    r"vmware|virtualbox|hyper-?v|vethernet|wsl|bluetooth|loopback|meta\b|mihomo|clash|"
+    r"\btun\b|\btap\b|npcap|sing-?box|letsvpn|\bvpn\b|docker|veth",
+    re.I)
+
+
+def ignored_address(ip: str) -> bool:
+    """Skip loopback, link-local, and the fake-ip range that answers port 22 without SSH."""
+    try:
+        addr = ipaddress.IPv4Address(ip)
+    except ValueError:
+        return True
+    return addr.is_loopback or addr.is_link_local or addr.is_multicast or addr in FAKE_IP
+
+
+def decode_console(data: bytes) -> str:
+    """ipconfig/arp on Chinese Windows are the ANSI code page, not UTF-8."""
+    if not data:
+        return ""
+    for encoding in ("utf-8", "gbk"):
+        try:
+            return data.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return data.decode("mbcs" if os.name == "nt" else "utf-8", "replace")
 
 
 def mac_compact(mac: str) -> str:
@@ -23,9 +51,12 @@ def xilinx_mac(mac: str) -> bool:
 
 
 def prefixes_from_ipconfig(text: str) -> list[str]:
-    """IPv4 /24 prefixes for adapters that have a real default gateway."""
+    """IPv4 /24 prefixes for physical adapters that have a real default gateway."""
     prefixes = []
     for block in re.split(r"(?:\r?\n){2,}", text.strip()):
+        title = next((line.strip() for line in block.splitlines() if line.strip()), "")
+        if VIRTUAL_ADAPTER.search(title):
+            continue
         addresses: list[str] = []
         gateway = ""
         for line in block.splitlines():
@@ -39,10 +70,10 @@ def prefixes_from_ipconfig(text: str) -> list[str]:
                 continue
             else:
                 addresses.extend(found)
-        if not gateway:
+        if not gateway or ignored_address(gateway):
             continue
         for ip in addresses:
-            if ip != gateway and not ip.startswith("127."):
+            if ip != gateway and not ignored_address(ip):
                 prefix = ".".join(ip.split(".")[:3]) + "."
                 if prefix not in prefixes:
                     prefixes.append(prefix)
@@ -89,9 +120,15 @@ def ensure_ssh_key(home: Path, runner=None) -> Path:
 
 
 def probe_ssh(ip: str, timeout: float = 0.3) -> bool:
+    """True only when the host sends an SSH banner. A bare TCP accept is not a board."""
     try:
-        with socket.create_connection((ip, 22), timeout):
-            return True
+        with socket.create_connection((ip, 22), timeout) as sock:
+            sock.settimeout(0.5)
+            try:
+                banner = sock.recv(128)
+            except OSError:
+                banner = b""
+            return banner.startswith(b"SSH-")
     except OSError:
         return False
 
@@ -101,17 +138,16 @@ def resolve_kria() -> list[str]:
         infos = socket.getaddrinfo("kria.local", 22, socket.AF_INET, socket.SOCK_STREAM)
     except socket.gaierror:
         return []
-    return sorted({item[4][0] for item in infos})
+    return sorted(ip for ip in {item[4][0] for item in infos} if not ignored_address(ip))
 
 
 def find_board() -> tuple[str, str]:
-    flags = subprocess.CREATE_NO_WINDOW if __import__("os").name == "nt" else 0
-    config = subprocess.run(["ipconfig"], capture_output=True, text=True, timeout=10,
-                            creationflags=flags, encoding="utf-8", errors="replace")
-    prefixes = prefixes_from_ipconfig(config.stdout or "")
+    flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+    config = subprocess.run(["ipconfig"], capture_output=True, timeout=10, creationflags=flags)
+    prefixes = prefixes_from_ipconfig(decode_console(config.stdout or b""))
     own: set[str] = set()
     try:
-        own.update(socket.gethostbyname_ex(socket.gethostname())[2])
+        own.update(ip for ip in socket.gethostbyname_ex(socket.gethostname())[2] if not ignored_address(ip))
     except OSError:
         pass
     targets = [f"{prefix}{host}" for prefix in prefixes[:2] for host in range(1, 255)
@@ -122,6 +158,5 @@ def find_board() -> tuple[str, str]:
             for ip, opened in zip(targets, pool.map(probe_ssh, targets)):
                 if opened:
                     open_hosts.add(ip)
-    arp = subprocess.run(["arp", "-a"], capture_output=True, text=True, timeout=10,
-                         creationflags=flags, encoding="utf-8", errors="replace")
-    return choose_board_host(open_hosts, parse_arp(arp.stdout or ""), resolve_kria())
+    arp = subprocess.run(["arp", "-a"], capture_output=True, timeout=10, creationflags=flags)
+    return choose_board_host(open_hosts, parse_arp(decode_console(arp.stdout or b"")), resolve_kria())

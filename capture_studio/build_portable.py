@@ -72,17 +72,25 @@ def main() -> None:
     except ImportError as exc:
         raise SystemExit("Install PyInstaller and pefile before building") from exc
 
-    from capture_studio.board_sync import BOARD_FILES
+    import importlib
+    BOARD_FILES = importlib.import_module(f"{PACKAGE.name}.board_sync").BOARD_FILES
     pyinstaller_args = [
         str(PACKAGE / "launcher.py"),
         "--noconfirm", "--clean", "--onedir", "--windowed",
         "--name", "CaptureStudio",
         "--paths", str(REPOSITORY),
-        "--hidden-import", "capture_studio.portable_connect",
-        "--hidden-import", "capture_studio.connect_kv260",
-        "--hidden-import", "capture_studio.board_sync",
-        "--hidden-import", "capture_studio.board_discover",
-        "--hidden-import", "capture_studio.camera_lab",
+        "--hidden-import", f"{PACKAGE.name}.portable_connect",
+        "--hidden-import", f"{PACKAGE.name}.connect_kv260",
+        "--hidden-import", f"{PACKAGE.name}.board_sync",
+        "--hidden-import", f"{PACKAGE.name}.board_discover",
+        "--hidden-import", f"{PACKAGE.name}.camera_lab",
+        "--hidden-import", PACKAGE.name,
+        "--hidden-import", f"{PACKAGE.name}.window",
+        "--hidden-import", f"{PACKAGE.name}.v7_ui",
+        "--hidden-import", f"{PACKAGE.name}.icons",
+        "--hidden-import", "PySide6.QtSvg",
+        "--add-data", f"{PACKAGE / 'assets' / 'icons'}{os.pathsep}{PACKAGE.name}/assets/icons",
+        "--icon", str(PACKAGE / "assets" / "app.ico"),
         "--distpath", str(DIST),
         "--workpath", str(PACKAGE / "build_tmp_portable"),
         "--specpath", str(PACKAGE / "build_tmp_portable"),

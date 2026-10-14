@@ -110,11 +110,11 @@ class CaptureOptions:
                 raise ValueError("PC codec must be ffv1, copy, or mjpeg")
         elif mode == "kv260_usb":
             if self.source_format not in ("mjpeg", "raw"):
-                raise ValueError("KV260 source format must be mjpeg or raw")
+                raise ValueError("开发板采集格式需是 mjpeg 或 raw")
             if self.codec != ("copy" if self.source_format == "mjpeg" else "h264"):
-                raise ValueError("KV260 MJPEG requires copy; raw requires h264")
+                raise ValueError("MJPEG 需原样封装；raw 需 H.264")
             if not re.fullmatch(r"/dev/video[0-9]+", self.device):
-                raise ValueError("KV260 device must be /dev/videoN")
+                raise ValueError("开发板摄像头需是 /dev/videoN")
         else:
             raise ValueError("unknown capture mode")
 

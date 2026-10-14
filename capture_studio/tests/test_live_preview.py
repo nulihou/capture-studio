@@ -1,7 +1,7 @@
 import io
 import struct
 import unittest
-from capture_studio.live_preview import read_png
+from capture_studio.live_preview import PREVIEW_PNG_LIMIT, read_png
 
 
 class PreviewFramingTests(unittest.TestCase):
@@ -17,4 +17,4 @@ class PreviewFramingTests(unittest.TestCase):
 
     def test_oversized_chunk_is_rejected_before_read(self):
         with self.assertRaises(ValueError):
-            read_png(io.BytesIO(b'\x89PNG\r\n\x1a\n'+struct.pack('>I',2_000_001)+b'IDAT'))
+            read_png(io.BytesIO(b'\x89PNG\r\n\x1a\n'+struct.pack('>I', PREVIEW_PNG_LIMIT + 1)+b'IDAT'))

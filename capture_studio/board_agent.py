@@ -265,6 +265,10 @@ def make_handler(state: AgentState) -> type[BaseHTTPRequestHandler]:
                     info = usb_image_devices()
                     self._json(200, {"devices": [item['device'] for item in info],
                                      "device_info": info, "board": board_facts()})
+                elif path == "/formats":
+                    from capture_studio.camera_lab import query_v4l2_formats
+                    device = (parse_qs(urlsplit(self.path).query).get("device") or [""])[0]
+                    self._json(200, query_v4l2_formats(device))
                 elif path == "/controls":
                     from capture_studio.camera_lab import query_v4l2_controls
                     device = (parse_qs(urlsplit(self.path).query).get("device") or [""])[0]

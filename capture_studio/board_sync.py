@@ -11,6 +11,11 @@ import subprocess
 import sys
 import tempfile
 
+try:
+    from .textcodec import safe_decode
+except ImportError:  # loaded as a plain script
+    from textcodec import safe_decode
+
 
 BOARD_FILES = (
     "__init__.py",
@@ -108,7 +113,7 @@ def sync_note(result: dict) -> str:
 
 
 REMOTE_BODY = r"""
-import base64, hashlib, json, os, signal, socket, subprocess, sys, time, urllib.request
+import base64, hashlib, json, os, re, signal, socket, subprocess, sys, time, urllib.request
 from pathlib import Path
 
 root = Path(PAYLOAD["root"])
@@ -165,7 +170,28 @@ if is_listening and token:
     except Exception as error:
         raise SystemExit("板上的采集服务没有正常响应，没有替换它。请先确认没有正在进行的录制，再重新连接。 " + str(error))
 elif is_listening and not token:
-    raise SystemExit("板上的采集服务正在运行，但找不到令牌文件。请先停止该服务后再连接。")
+    foreign = ""
+    for pid in agent_pids():
+        try:
+            command = Path(f"/proc/{pid}/cmdline").read_bytes().replace(b"\x00", b" ").decode("utf-8", "replace")
+        except OSError:
+            continue
+        found = re.search(r"--token-file(?:=|\s+)(\S+)", command)
+        if found and Path(found.group(1)).is_file():
+            foreign = Path(found.group(1)).read_text(encoding="ascii").strip()
+            break
+    if not foreign:
+        raise SystemExit("板上的采集服务正在运行，但找不到令牌文件。请先停止该服务后再连接。")
+    request = urllib.request.Request(
+        "http://127.0.0.1:8765/status",
+        headers={"Authorization": "Bearer " + foreign})
+    try:
+        with urllib.request.urlopen(request, timeout=3) as response:
+            recording = bool(json.loads(response.read().decode()).get("recording"))
+    except Exception as error:
+        raise SystemExit("板上的采集服务没有正常响应，没有替换它。请先确认没有正在进行的录制，再重新连接。 " + str(error))
+    if recording:
+        raise SystemExit("板上正在录制，这次没有替换正在运行的程序。停止录制后再连接，就会自动换上当前版本。")
 
 needs_update = bool(changed) or not stamp_ok
 if recording and needs_update:
@@ -258,7 +284,7 @@ def public_key_text(key: Path) -> str:
     if public.is_file():
         return public.read_text(encoding="utf-8").strip()
     result = subprocess.run(["ssh-keygen", "-y", "-f", str(key)], capture_output=True,
-                            text=True, timeout=15)
+                            text=True, errors="replace", timeout=15)
     if result.returncode != 0 or not result.stdout.strip():
         raise RuntimeError("无法从私钥得到公钥。")
     return result.stdout.strip()
@@ -294,7 +320,7 @@ def install_authorized_key(ssh: str, key: Path, user: str, host: str, password: 
             raise RuntimeError("这台电脑缺少用于首次登录的组件，无法把公钥装到新开发板。")
         compiled = subprocess.run([str(compiler), "/nologo", "/t:exe",
                                    f"/out:{program}", str(source)],
-                                  capture_output=True, text=True, timeout=30, creationflags=flags)
+                                  capture_output=True, text=True, errors="replace", timeout=30, creationflags=flags)
         if compiled.returncode != 0 or not program.is_file():
             raise RuntimeError("无法准备首次登录。")
         environment = os.environ.copy()
@@ -306,7 +332,7 @@ def install_authorized_key(ssh: str, key: Path, user: str, host: str, password: 
             [ssh, "-o", "BatchMode=no", "-o", "PreferredAuthentications=password",
              "-o", "NumberOfPasswordPrompts=1", "-o", "StrictHostKeyChecking=accept-new",
              "-o", "ConnectTimeout=15", f"{user}@{host}", remote],
-            capture_output=True, text=True, timeout=30, creationflags=flags, env=environment)
+            capture_output=True, text=True, errors="replace", timeout=30, creationflags=flags, env=environment)
     if result.returncode:
         detail = (result.stderr or result.stdout or "登录失败").strip()
         raise RuntimeError("没能把公钥装到新开发板。" + detail[-400:])
@@ -331,8 +357,8 @@ def sync_board_package(ssh_args: list[str], board_root: str, source: Path | None
     flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
     remote = subprocess.run(ssh_args + ["python3", "-"], input=script, capture_output=True,
                             timeout=90, creationflags=flags)
-    stdout = remote.stdout.decode("utf-8", errors="replace")
-    stderr = remote.stderr.decode("utf-8", errors="replace")
+    stdout = safe_decode(remote.stdout)
+    stderr = safe_decode(remote.stderr)
     if remote.returncode:
         detail = (stderr or stdout or "开发板没有返回结果").strip()
         raise RuntimeError(detail[-800:])

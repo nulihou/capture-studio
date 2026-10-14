@@ -348,3 +348,51 @@ def slow_usb_warning(speed: str, width: int, height: int) -> str:
     if speed in {"12", "1.5"} and width * height >= 1280 * 720:
         return "这是 USB 全速口，高分辨率可能会卡。可以先用 640×480。"
     return ""
+
+
+# ---- supported capture modes (v6) ------------------------------------------------
+V4L2_FORMATS = {"MJPG": "mjpeg", "YUYV": "raw"}
+
+
+def parse_v4l2_formats(text: str) -> list[dict[str, Any]]:
+    """Parse `v4l2-ctl --list-formats-ext` (new "[0]: 'MJPG'" and old "Pixel Format: 'MJPG'" styles).
+
+    Returns modes as {"width", "height", "fps", "format"} with format in the app's vocabulary
+    ("mjpeg" / "raw"). Unknown pixel formats and stepwise sizes are skipped, never guessed.
+    """
+    modes: list[dict[str, Any]] = []
+    fmt: str | None = None
+    size: tuple[int, int] | None = None
+    for line in text.splitlines():
+        found = re.search(r"(?:\[\d+\]:|Pixel Format:)\s*'([A-Z0-9 ]{4})'", line)
+        if found:
+            fmt = V4L2_FORMATS.get(found.group(1).strip())
+            size = None
+            continue
+        found = re.search(r"Size:\s*Discrete\s+(\d+)x(\d+)", line)
+        if found:
+            size = (int(found.group(1)), int(found.group(2)))
+            continue
+        found = re.search(r"Interval:\s*Discrete\s+[\d.]+s\s*\(([\d.]+)\s*fps\)", line)
+        if found and fmt and size:
+            fps = int(round(float(found.group(1))))
+            mode = {"width": size[0], "height": size[1], "fps": fps, "format": fmt}
+            if fps > 0 and mode not in modes:
+                modes.append(mode)
+    return modes
+
+
+def query_v4l2_formats(device: str, runner: Callable[[list[str]], str] | None = None) -> dict[str, Any]:
+    if not re.fullmatch(r"/dev/video[0-9]+", device or ""):
+        raise ValueError("device must be /dev/videoN")
+    if runner is None:
+        if shutil.which("v4l2-ctl") is None:
+            return {"device": device, "modes": [], "error": "板上没有 v4l2-ctl，无法检测模式"}
+
+        def runner(argv: list[str]) -> str:
+            result = subprocess.run(argv, capture_output=True, text=True,
+                                    encoding="utf-8", errors="replace", timeout=8)
+            return (result.stdout or "") + "\n" + (result.stderr or "")
+
+    text = runner(["v4l2-ctl", "-d", device, "--list-formats-ext"])
+    return {"device": device, "modes": parse_v4l2_formats(text)}

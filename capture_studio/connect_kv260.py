@@ -19,7 +19,12 @@ import time
 REPO = (Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False)
         else Path(__file__).resolve().parent.parent)
 sys.path.insert(0, str(REPO))
-from capture_studio.desktop import BoardClient, CaptureDesktop
+import importlib
+# v9: import from whichever package folder this file lives in (capture_studio_ui_v9, capture_studio, ...),
+# never silently from an older sibling copy named capture_studio.
+_PKG = __package__ or Path(__file__).resolve().parent.name
+_desktop = importlib.import_module(f"{_PKG}.desktop")
+BoardClient, CaptureDesktop = _desktop.BoardClient, _desktop.CaptureDesktop
 
 
 def open_connection(args):
@@ -30,7 +35,8 @@ def open_connection(args):
                 '-o', 'StrictHostKeyChecking=accept-new',
                 '-o', 'ConnectTimeout=10', f'{args.user}@{args.host}']
     flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
-    from capture_studio.board_sync import authentication_failed, install_authorized_key, sync_board_package
+    _sync = importlib.import_module(f"{_PKG}.board_sync")
+    authentication_failed, install_authorized_key, sync_board_package = _sync.authentication_failed, _sync.install_authorized_key, _sync.sync_board_package
     try:
         setup = sync_board_package(ssh_args, args.board_root)
     except RuntimeError as error:
@@ -42,9 +48,9 @@ def open_connection(args):
         install_authorized_key(ssh, args.ssh_key, args.user, args.host, password)
         setup = sync_board_package(ssh_args, args.board_root)
     token = setup['token']
-    from capture_studio.board_devices import select_usb_image_device, selection_note
-    args.device = select_usb_image_device(setup['cameras'], args.device, args.camera_serial)
-    note = selection_note(setup['cameras'], args.device, args.camera_serial)
+    choose_camera = importlib.import_module(f"{_PKG}.camera_lab").choose_camera
+    chosen, note = choose_camera(setup['cameras'], args.device or '', args.camera_serial)
+    args.device = chosen
     url = f'http://127.0.0.1:{args.local_port}'
     client = BoardClient(url, token)
     owned_tunnel = None
@@ -68,9 +74,9 @@ def open_connection(args):
                     raise
                 time.sleep(0.25)
         devices = client.request('GET', '/devices')['devices']
-        if args.device not in devices:
+        if args.device and args.device not in devices:
             raise RuntimeError(f'Configured video node unavailable: {args.device}; nodes={devices}')
-        return {'client': client, 'url': url, 'token': token, 'device': args.device,
+        return {'client': client, 'url': url, 'token': token, 'device': args.device or '',
                 'devices': devices, 'status': status, 'tunnel': owned_tunnel,
                 'selection_note': note, 'sync_note': setup.get('sync_note', '')}
     except BaseException:

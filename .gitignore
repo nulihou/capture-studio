@@ -11,3 +11,11 @@ capture_studio/build/
 capture_studio/acceptance_runs/
 *.zip
 *.exe
+
+capture_studio/studio_settings.json
+capture_studio/ui_prefs.json
+capture_studio/self_test.json
+capture_studio/capture_templates.json
+capture_studio/build_tmp_portable/
+*.pre_audit
+capture_studio/ui_redesign/screens_*/
