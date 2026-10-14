@@ -1,7 +1,5 @@
 # Capture Studio
 
-> Former repo names `kv260-capture-studio` / `board-capture-studio` redirect here.
-
 ## Clone
 
 ```bash
