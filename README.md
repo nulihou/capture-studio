@@ -1,8 +1,10 @@
+[**中文**](README.md) | [English](README.en.md)
+
 # Capture Studio
 
-USB camera capture and board debug for **KV260, Jetson, Raspberry Pi, RK3588**, and other SSH-reachable Linux boards - plus local USB cameras on Windows.
+Windows 桌面程序（PySide6）：本机 USB 摄像头采集，以及通过 SSH 为 **KV260、Jetson、树莓派、RK3588** 和其他可 SSH 访问的 Linux 开发板做采集与调试。支持中文 / English、浅色 / 深色（截图为 125% 缩放、未接摄像头时）。
 
-## Clone
+## 克隆
 
 ```bash
 git clone https://github.com/nulihou/capture-studio.git
@@ -11,25 +13,21 @@ pip install -r capture_studio/requirements.txt
 python -m capture_studio
 ```
 
-Or double-click `capture_studio\Start-CaptureStudio.cmd` (legacy names `Start-KV260-CaptureStudio.cmd` / `Start-BoardCaptureStudio.cmd` only forward here).
+或双击 `capture_studio\Start-CaptureStudio.cmd`（旧名称 `Start-KV260-CaptureStudio.cmd` / `Start-BoardCaptureStudio.cmd` 仅转发到这里）。
 
-Run: `python -m capture_studio`
+运行：`python -m capture_studio`
 
-## 中文
-
-Windows 桌面程序（PySide6）：本机 USB 摄像头采集，或通过 SSH 连接开发板采集。支持中文 / English、浅色 / 深色（截图为 125% 缩放、未接摄像头时）。
-
-### 界面（v0.12）
+## 界面（v0.12）
 
 左侧：测试、电脑、开发板、外设、会话、设置。
 
-#### 摄像头测试
+### 摄像头测试
 
 ![摄像头测试](docs/screenshots/v11/zh_light_lab.png)
 
 顶部四格为开发板、摄像头、画面参数和状态。左侧预览；右侧画面 / 曝光 / 图像。快捷键：Space 开始/停止，L 实时预览，P 预览一帧，F 大屏（Large view），H 采集前体检。
 
-#### 开发板
+### 开发板
 
 ![开发板](docs/screenshots/v11/zh_light_board.png)
 
@@ -46,13 +44,13 @@ Windows 桌面程序（PySide6）：本机 USB 摄像头采集，或通过 SSH �
 
 连接后显示型号、系统、CPU、内存、温度、磁盘等（KV260 / Zynq / Jetson / 树莓派 / RK3588 等可识别）。
 
-#### 外设
+### 外设
 
 ![外设](docs/screenshots/v11/zh_light_periph.png)
 
 USB、视频、串口、I2C、SPI、网络、存储、音频、GPIO、显示等；可搜索、筛选、串口终端与导出。
 
-### 准备
+## 准备
 
 - Windows 10/11，Python 3.10+：`pip install -r capture_studio/requirements.txt`（`keyring` 用于记住密码；可选 `zeroconf` 增强 mDNS）
 - Windows OpenSSH 客户端
@@ -61,7 +59,7 @@ USB、视频、串口、I2C、SPI、网络、存储、音频、GPIO、显示等�
 - 板上需 Python 3、GStreamer、gcc（首次连接写入采集服务）
 - 本机采集/校验需要 FFmpeg、FFprobe（PATH 或设置页指定）
 
-### 使用
+## 使用
 
 ```powershell
 git clone https://github.com/nulihou/capture-studio.git
@@ -77,7 +75,7 @@ python -m capture_studio
 5. 在「摄像头测试」或「开发板采集」页用 **大屏** 看画面；对准后再录。
 6. **设置**页可 **检查更新**（GitHub Releases；代理失败会直连重试；不自动替换本机文件）。
 
-### 测试
+## 测试
 
 ```powershell
 cd capture_studio\tests
@@ -89,63 +87,6 @@ python ..\ui_redesign\smoke_ui.py capture_studio
 
 （在仓库根克隆布局下执行；`test_ui.py` 会开 Tk 窗口，默认跳过。）
 
-### 便携包
+## 便携包
 
 Release 资产：`CaptureStudio_v<version>_windows_x64.zip`。解压后运行 `CaptureStudio.exe`。
-
-## English
-
-Windows app (PySide6) for local USB cameras and SSH boards (KV260, Jetson, Raspberry Pi, RK3588, …). Chinese / English, light / dark. Screenshots at 125% scaling with no camera attached.
-
-### Interface (v0.12)
-
-Sidebar: Test, PC, Board, Peripherals, Sessions, Settings.
-
-#### Camera test
-
-![Camera test](docs/screenshots/v11/en_light_lab.png)
-
-Shortcuts: Space record, L live preview, P one frame, F **Large view**, H health check.
-
-#### Board
-
-![Board](docs/screenshots/v11/en_light_board.png)
-
-Discovery (also explained in the connection wizard):
-
-- **/24** around each real adapter (up to 3; never sweeps a wider mask as a whole)
-- System **neighbour table**, including **169.254** link-local (direct cable); **no** /16 link-local sweep
-- Common **`.local`** names; optional `zeroconf` for `_ssh._tcp`
-- **TCP 22** SSH banner only - no login
-- Vendor tags; boards ranked first; guidance when the NIC has only 169.254 or no gateway (**text only**, no OS network changes); **Test this IP** for a single address
-
-Auto-select: one board → select it; several → pick manually; a single non-board SSH host → select with a warning. Multi-device networks are never silently forced to an Xilinx address.
-
-#### Peripherals
-
-![Peripherals](docs/screenshots/v11/en_light_periph.png)
-
-### Requirements
-
-- Windows 10/11, Python 3.10+: `pip install -r capture_studio/requirements.txt`
-- OpenSSH Client; reachable board (same subnet, direct-link static IP, or typed IP)
-- FFmpeg / FFprobe for local capture and checks
-
-### Use
-
-```powershell
-git clone https://github.com/nulihou/capture-studio.git
-cd capture-studio
-pip install -r capture_studio/requirements.txt
-python -m capture_studio
-```
-
-The **Capture Studio SSH key** is stored as `~/.ssh/id_ed25519_kv260` for compatibility with boards that already trust that key. **Settings → Check for updates** uses GitHub Releases (proxy failure retries direct; never self-replaces files).
-
-### Tests
-
-Same commands as the Chinese section (repo-root layout).
-
-### Portable zip
-
-`CaptureStudio_v<version>_windows_x64.zip` → run `CaptureStudio.exe`.
