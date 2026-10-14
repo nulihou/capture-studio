@@ -77,7 +77,7 @@ def main() -> None:
     pyinstaller_args = [
         str(PACKAGE / "launcher.py"),
         "--noconfirm", "--clean", "--onedir", "--windowed",
-        "--name", "CaptureStudio",
+        "--name", "BoardCaptureStudio",
         "--paths", str(REPOSITORY),
         "--hidden-import", f"{PACKAGE.name}.portable_connect",
         "--hidden-import", f"{PACKAGE.name}.connect_kv260",
@@ -101,11 +101,11 @@ def main() -> None:
     for name in BOARD_FILES:
         pyinstaller_args.extend(["--add-data", f"{PACKAGE / name}{os.pathsep}capture_studio"])
     run(pyinstaller_args)
-    bundle = DIST / "CaptureStudio"
+    bundle = DIST / "BoardCaptureStudio"
     copied = copy_ffmpeg_closure(args.ffmpeg_bin, bundle / "bin")
     environment = os.environ.copy()
     environment["PATH"] = str(Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32")
-    smoke = subprocess.run([str(bundle / "CaptureStudio.exe"), "--self-test"],
+    smoke = subprocess.run([str(bundle / "BoardCaptureStudio.exe"), "--self-test"],
                            cwd=REPOSITORY, env=environment, timeout=45)
     report_path = bundle / "self_test.json"
     report = json.loads(report_path.read_text(encoding="utf-8")) if report_path.is_file() else {}
@@ -113,11 +113,12 @@ def main() -> None:
     if smoke.returncode != 0 or not report.get("ok"):
         raise SystemExit(f"portable bundle self-test failed: {report}")
     (bundle / "README.txt").write_text(
-        "CaptureStudio.exe: portable Windows desktop capture app.\n"
+        "BoardCaptureStudio.exe — Board Capture Studio (portable).\n"
         "Copy this entire folder to another Windows PC.\n"
         "ffmpeg.exe and ffprobe.exe are in bin; source DLLs are copied beside them.\n"
-        "Connect a local USB camera or configure a KV260 board agent.\n"
+        "Connect a local USB camera or any SSH board (KV260, Jetson, Raspberry Pi, Rockchip, …).\n"
         "Keep the whole folder together. Settings and default captures stay beside the EXE.\n"
+        "GitHub repo slug kv260-capture-studio is legacy; the product name is Board Capture Studio.\n"
         "See capture_studio/README.md in the source tree for full instructions.\n",
         encoding="utf-8",
     )
@@ -132,11 +133,11 @@ def main() -> None:
     captured = bundle / "captures"
     if captured.exists():
         shutil.rmtree(captured)
-    (bundle/'连接开发板.cmd').write_text('@echo off\r\ncd /d "%~dp0"\r\nstart "" "%~dp0CaptureStudio.exe" --connect\r\n',encoding='utf-8')
+    (bundle/'连接开发板.cmd').write_text('@echo off\r\ncd /d "%~dp0"\r\nstart "" "%~dp0BoardCaptureStudio.exe" --connect\r\n',encoding='utf-8')
     shutil.copy2(PACKAGE/'PORTABLE_GUIDE.md',bundle/'换电脑使用说明.md')
     shutil.copy2(PACKAGE / 'BOARD_README.md', bundle / 'BOARD_README.md')  # v12: lab diagnostics notes stay out of public builds
     version = importlib.import_module(PACKAGE.name).__version__
-    with ZipFile(DIST / f"KV260CaptureStudio_v{version}_windows_x64.zip", "w",
+    with ZipFile(DIST / f"BoardCaptureStudio_v{version}_windows_x64.zip", "w",
                  compression=ZIP_DEFLATED, compresslevel=6) as archive:
         for path in bundle.rglob("*"):
             if path.is_file():

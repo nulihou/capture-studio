@@ -807,11 +807,11 @@ class V7Mixin:
         if session:
             left = recording.get("remaining")
             extra = f" {left}s" if left is not None else ""
-            title = f"● {tr('录制中')}{extra} — Capture Studio"
+            title = f"● {tr('录制中')}{extra} — " + tr("开发板采集工作室")
         elif state.get("live"):
-            title = f"◉ {tr('实时预览中')} — Capture Studio"
+            title = f"◉ {tr('实时预览中')} — " + tr("开发板采集工作室")
         else:
-            title = "Capture Studio"
+            title = tr("开发板采集工作室")
         if self.windowTitle() != title:
             self.setWindowTitle(title)
             self.setWindowIcon(_dot_icon("#FF3B30" if session else ("#34C759" if state.get("live") else "")))

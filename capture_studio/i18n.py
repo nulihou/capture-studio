@@ -1,4 +1,4 @@
-"""Chinese / English UI text for Capture Studio.
+"""Chinese / English UI text for Board Capture Studio.
 
 Source strings stay Chinese (they double as the data values the backend expects);
 only what is *displayed* goes through tr() / tr_opt() / tr_msg().
@@ -524,3 +524,7 @@ _PATTERNS[:0] = [
     (r"^有新版本 v(\S+)$", "New version {0}"), (r"^已是最新 v(\S+)$", "Up to date (v{0})"), (r"^当前 v(\S+)$", "Current v{0}"),
     (r"^GitHub 返回错误 (\d+)$", "GitHub returned error {0}"),
 ]
+
+_V121 = {"开发板采集工作室": "Board Capture Studio"}
+UI.update({k: v for k, v in _V121.items() if k not in UI})
+MESSAGES.update({k: v for k, v in _V121.items() if k not in MESSAGES})

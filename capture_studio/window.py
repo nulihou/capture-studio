@@ -1,4 +1,4 @@
-"""Desktop window for Capture Studio."""
+"""Desktop window for Board Capture Studio."""
 from __future__ import annotations
 
 import os
@@ -875,7 +875,7 @@ class StudioWindow(V7Mixin, QWidget):
     def __init__(self) -> None:
         super().__init__()
         self.setObjectName("app")
-        self.setWindowTitle("Capture Studio")
+        self.setWindowTitle(tr("开发板采集工作室"))
         self.resize(1360, 860)
         self.setMinimumSize(1100, 720)
         self.fields: dict[str, QWidget] = {}
@@ -1026,7 +1026,7 @@ class StudioWindow(V7Mixin, QWidget):
         mark = QLabel()
         mark.setPixmap(_viewfinder())
         brand.addWidget(mark)
-        brand.addWidget(_label("Capture Studio", "brand"))
+        brand.addWidget(_label("开发板采集工作室", "brand"))
         brand.addStretch(1)
         layout.addLayout(brand)
         layout.addSpacing(28)
