@@ -2258,6 +2258,8 @@ class StudioWindow(V7Mixin, QWidget):
         self.duration_bar.setVisible(name in {"lab", "pc", "board"})
         self.footer_stack.setCurrentIndex(order[name])
         self._fit_inspector()
+        # Paint source-specific cards/actions now; the periodic tick is not a navigation hook.
+        self.refresh(STUDIO.state())
 
     def _set_reduced_motion(self, value: bool) -> None:
         motion.set_reduced(True if value else None)

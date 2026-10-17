@@ -96,6 +96,20 @@ class PcPageIsolation(unittest.TestCase):
         self.assertIn("640", self.win.tiles["stream"]._full)
         self.assertIn("15 fps", self.win.tiles["stream"]._full)
 
+    def test_navigation_refreshes_cards_without_timer_or_manual_refresh(self):
+        self._board_live()
+        with self.S.lock:
+            self.S.settings.update({'width': '1920', 'height': '1080', 'fps': '30', 'format': 'mjpeg',
+                                    'pc_width': '640', 'pc_height': '480', 'pc_fps': '15', 'pc_format': 'raw'})
+        self.win.show_page('pc')
+        self.assertNotIn('KV260', ' '.join(self._texts().values()))
+        self.assertIn('640', self.win.tiles['stream']._full)
+        self.assertIn('15 fps', self.win.tiles['stream']._full)
+        self.assertEqual(self._enabled('开始采集'), [False])
+        self.win.show_page('board')
+        self.assertIn('KV260', ' '.join(self._texts().values()))
+        self.assertIn('1920', self.win.tiles['stream']._full)
+
 
 if __name__ == "__main__":
     unittest.main()
