@@ -6,6 +6,7 @@ existing Python modules.
 from __future__ import annotations
 
 import json
+from http.client import HTTPException
 from argparse import Namespace
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -702,7 +703,7 @@ class Studio:
             def work() -> None:
                 try:
                     client.request("POST", "/live/stop", {}, timeout=10)
-                except RuntimeError:
+                except (RuntimeError, OSError, HTTPException):
                     pass
             if wait:
                 work()
@@ -1018,12 +1019,19 @@ class Studio:
     def close(self) -> None:
         self._closed.set()
         self._stop_monitor()
-        self.stop_live(remote=True, wait=False)
+        # Finish the bounded stop request while its SSH transport is still alive.
+        self.stop_live(remote=True, wait=True)
         with self.lock:
             tunnel = self.tunnel
             self.tunnel = None
+            self.client = None
+            self.connected = False
         if tunnel is not None:
-            tunnel.terminate()
+            try:
+                tunnel.terminate()
+                tunnel.wait(timeout=3)
+            except (OSError, subprocess.TimeoutExpired):
+                pass
 
 
 STUDIO = Studio()

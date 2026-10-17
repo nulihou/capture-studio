@@ -6,6 +6,10 @@ Windows 桌面程序（PySide6）：本机 USB 摄像头采集，以及通过 SS
 
 ## 克隆
 
+当前版本 **v0.12.6**，便携包见 [GitHub Release](https://github.com/nulihou/capture-studio/releases/tag/v0.12.6)。此版本修复退出时预览停止请求与 SSH 隧道关闭的竞争，并在切换页面时立即刷新对应来源的卡片和操作状态。
+
+验证：227 项软件测试、229 项 Qt 界面检查通过；最终 Windows EXE 已在 KV260 / HHW001 上完成预览、60 秒录制、自动停止、取回、校验及实时预览中退出，退出码为 0。此验收不代表摄像头达到真实 30 fps，也不代替现场画质与长期稳定性测试。
+
 ```bash
 git clone https://github.com/nulihou/capture-studio.git
 cd capture-studio
@@ -17,7 +21,7 @@ python -m capture_studio
 
 运行：`python -m capture_studio`
 
-## 界面（v0.12.5）
+## 界面（以下截图来自 v0.12.5）
 
 左侧：测试、电脑、开发板、外设、会话、设置。
 

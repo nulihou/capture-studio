@@ -292,3 +292,39 @@ def test_timed_watcher_handles_deadline_and_session_change(studio):
         arm(SID, None)
         thread.call_args.kwargs['target']()
     studio.stop_record.assert_not_called()
+
+
+def test_close_waits_for_stop_before_terminating_transport(studio):
+    studio.stop_live = product.Studio.stop_live.__get__(studio)
+    entered, release = threading.Event(), threading.Event()
+    client, tunnel = Mock(), Mock()
+    studio.client, studio.tunnel, studio.connected = client, tunnel, True
+    def stop_request(*args, **kwargs):
+        entered.set()
+        assert release.wait(3)
+        tunnel.terminate.assert_not_called()
+    client.request.side_effect = stop_request
+    thread = threading.Thread(target=studio.close)
+    thread.start()
+    try:
+        assert entered.wait(2)
+        tunnel.terminate.assert_not_called()
+    finally:
+        release.set()
+        thread.join(4)
+    assert not thread.is_alive()
+    tunnel.terminate.assert_called_once()
+    assert studio.client is None and studio.tunnel is None and not studio.connected
+    studio.close()  # repeated close does not repeat requests or termination
+    client.request.assert_called_once()
+
+
+@pytest.mark.parametrize('error', [ConnectionResetError('10054'), TimeoutError('timeout')])
+def test_close_disconnected_transport_is_quiet_and_released(studio, error):
+    studio.stop_live = product.Studio.stop_live.__get__(studio)
+    studio.client = Mock()
+    studio.client.request.side_effect = error
+    tunnel = studio.tunnel = Mock()
+    studio.close()
+    tunnel.terminate.assert_called_once()
+    assert studio.client is None and studio.last_error == ''

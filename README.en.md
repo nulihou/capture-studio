@@ -8,6 +8,10 @@ Windows app (PySide6) for local USB cameras and SSH boards (KV260, Jetson, Raspb
 
 ## Clone
 
+Current version: **v0.12.6**, available from [GitHub Releases](https://github.com/nulihou/capture-studio/releases/tag/v0.12.6). This release completes the preview-stop request before closing the SSH tunnel and immediately refreshes source-specific cards and actions when navigating between pages.
+
+Validation: 227 software tests and 229 Qt UI checks passed. The final Windows EXE was exercised on a KV260 / HHW001 through preview, a 60-second recording, automatic stop, download, audit, and exit during live preview (exit code 0). This does not establish actual 30 fps, field image quality, or long-term hardware stability.
+
 ```bash
 git clone https://github.com/nulihou/capture-studio.git
 cd capture-studio
@@ -19,7 +23,7 @@ Or double-click `capture_studio\Start-CaptureStudio.cmd` (legacy names `Start-KV
 
 Run: `python -m capture_studio`
 
-## Interface (v0.12.5)
+## Interface (screenshots from v0.12.5)
 
 Sidebar: Test, PC, Board, Peripherals, Sessions, Settings.
 
