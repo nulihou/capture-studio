@@ -19,7 +19,7 @@ Or double-click `capture_studio\Start-CaptureStudio.cmd` (legacy names `Start-KV
 
 Run: `python -m capture_studio`
 
-## Interface (v0.12.4)
+## Interface (v0.12.5)
 
 Sidebar: Test, PC, Board, Peripherals, Sessions, Settings.
 

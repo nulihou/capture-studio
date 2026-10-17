@@ -17,7 +17,7 @@ python -m capture_studio
 
 运行：`python -m capture_studio`
 
-## 界面（v0.12.4）
+## 界面（v0.12.5）
 
 左侧：测试、电脑、开发板、外设、会话、设置。
 
