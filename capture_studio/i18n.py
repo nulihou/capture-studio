@@ -123,6 +123,7 @@ UI = {
     "内存": "Memory", "存储": "Storage", "网络": "Network", "运行": "Uptime", "温度": "Temp",
     "磁盘": "Disk", "网速": "Net", "可用": "free", "核": "cores",
     "无画面": "No Signal",
+    "本机未检测到摄像头": "No camera on this PC",
     "大屏": "Large view",
     "滚轮放大    拖动平移    Esc 关闭": "Scroll to zoom    Drag to pan    Esc to close",
     "关闭": "Close",
@@ -141,6 +142,7 @@ UI = {
     "也可直接填写开发板 IP 后连接": "Or type the board IP and connect",
     "登录使用 Capture Studio SSH 密钥（磁盘文件仍为 id_ed25519_kv260）":
         "Sign-in uses the Capture Studio SSH key (on-disk file stays id_ed25519_kv260)",
+    "SSH 密钥：id_ed25519_kv260": "SSH key: id_ed25519_kv260",
     "界面显示「Capture Studio SSH 密钥」；磁盘文件名仍为 id_ed25519_kv260（兼容旧版）。":
         "UI shows “Capture Studio SSH key”; on-disk filename stays id_ed25519_kv260 (compatibility).",
     "板端目录": "Board Directory",
@@ -208,6 +210,7 @@ UI = {
     "室内会变暗": "Darker indoors",
     "语言": "Language",
     "停止实时": "Stop Live", "录制中": "Recording", "实时预览中": "Live", "空闲": "Idle",
+    "收尾待完成": "Completion pending",
     "开发板": "Board", "画面参数": "Stream", "状态": "Status", "动态": "Activity",
     "暂无动态": "No activity yet", "识别摄像头并预览": "Detect the camera and preview",
     "调整画面后开始采集": "Tune the picture, then record",

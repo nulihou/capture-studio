@@ -66,10 +66,52 @@ def mode_label(mode: dict[str, Any]) -> str:
             f"{FORMAT_LABEL.get(str(mode['format']), str(mode['format']).upper())}")
 
 
-def saved_mode(settings: dict[str, Any]) -> dict[str, Any] | None:
+MODE_KEYS = ("width", "height", "fps", "format")
+
+
+def mode_prefix(kind: str) -> str:
+    """v0.12.5: the PC camera keeps its own mode under pc_width/pc_height/pc_fps/pc_format;
+    the board keeps the original width/height/fps/format keys (older settings load unchanged)."""
+    return "pc_" if kind in ("pc", "pc_usb") else ""
+
+
+def mode_view(settings: dict[str, Any], kind: str) -> dict[str, Any]:
+    """Copy of settings whose width/height/fps/format are the given source's mode."""
+    view = dict(settings)
+    prefix = mode_prefix(kind)
+    if prefix:
+        for key in MODE_KEYS:
+            if str(settings.get(prefix + key) or "") != "":
+                view[key] = settings[prefix + key]
+    return view
+
+
+def to_kind(payload: dict[str, Any], kind: str, current: dict[str, Any]) -> dict[str, Any]:
+    """Route width/height/fps/format in payload to the given source's keys; board keys keep current values."""
+    prefix = mode_prefix(kind)
+    if not prefix:
+        return dict(payload)
+    routed = dict(payload)
+    for key in MODE_KEYS:
+        if key in payload:
+            routed[prefix + key] = payload[key]
+            if key in current:
+                routed[key] = current[key]
+    return routed
+
+
+def migrate_pc_mode(settings: dict[str, Any], saved: dict[str, Any]) -> None:
+    """Settings saved before v0.12.5 had one shared mode; seed the PC mode from it once."""
+    for key in MODE_KEYS:
+        if str(saved.get("pc_" + key) or "") == "":
+            settings["pc_" + key] = settings.get(key, "")
+
+
+def saved_mode(settings: dict[str, Any], kind: str = "board") -> dict[str, Any] | None:
+    view = mode_view(settings, kind)
     try:
-        return {"width": int(str(settings.get("width")).strip()), "height": int(str(settings.get("height")).strip()),
-                "fps": int(str(settings.get("fps")).strip()), "format": str(settings.get("format") or "mjpeg")}
+        return {"width": int(str(view.get("width")).strip()), "height": int(str(view.get("height")).strip()),
+                "fps": int(str(view.get("fps")).strip()), "format": str(view.get("format") or "mjpeg")}
     except (TypeError, ValueError):
         return None
 
@@ -86,9 +128,10 @@ def choose_mode(modes: list[dict[str, Any]], saved: dict[str, Any] | None) -> di
     return sorted(pool, key=lambda m: (-m["width"] * m["height"], m["format"] != "mjpeg", -m["fps"]))[0]
 
 
-def apply_mode(settings: dict[str, Any], mode: dict[str, Any]) -> None:
-    """Write a mode back in the existing settings format (strings, same keys)."""
-    settings["width"] = str(int(mode["width"]))
-    settings["height"] = str(int(mode["height"]))
-    settings["fps"] = str(int(mode["fps"]))
-    settings["format"] = str(mode["format"])
+def apply_mode(settings: dict[str, Any], mode: dict[str, Any], kind: str = "board") -> None:
+    """Write a mode back in the existing settings format (strings); PC uses the pc_ keys."""
+    prefix = mode_prefix(kind)
+    settings[prefix + "width"] = str(int(mode["width"]))
+    settings[prefix + "height"] = str(int(mode["height"]))
+    settings[prefix + "fps"] = str(int(mode["fps"]))
+    settings[prefix + "format"] = str(mode["format"])

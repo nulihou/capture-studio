@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
 from . import i18n
 from .i18n import tr, tr_msg, tr_opt
 from .camera_lab import TUNING, support_for
-from .camera_modes import PRESETS, mode_key, mode_label, saved_mode, sort_modes
+from .camera_modes import PRESETS, mode_key, mode_label, mode_prefix, mode_view, saved_mode, sort_modes
 from .product import STUDIO
 from . import icons, motion, theme, updates
 from . import __version__
@@ -458,12 +458,19 @@ class Monitor(QWidget):
         super().__init__()
         self.image = QImage()
         self.caption = ""
+        self.empty_title = ""  # overrides "无画面" (e.g. PC page without a camera)
         self.setMinimumSize(520, 360)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
     def set_image(self, image: QImage) -> None:
         self.image = image
         self.update()
+
+    def set_empty_title(self, text: str) -> None:
+        if text != self.empty_title:
+            self.empty_title = text
+            if self.image.isNull():
+                self.update()
 
     def set_caption(self, text: str) -> None:
         if text != self.caption:
@@ -498,14 +505,15 @@ class Monitor(QWidget):
         title.setPixelSize(20)
         title.setWeight(QFont.Weight.DemiBold)
         painter.setFont(title)
-        painter.drawText(self.rect().adjusted(0, -16, 0, 0), Qt.AlignmentFlag.AlignCenter, tr("无画面"))
+        painter.drawText(self.rect().adjusted(0, -16, 0, 0), Qt.AlignmentFlag.AlignCenter,
+                         tr(self.empty_title or "无画面"))
         painter.setPen(QColor("#8E8E93"))
         detail = QFont(self.font())
         detail.setPixelSize(13)
         painter.setFont(detail)
         line = QRectF(0, self.height() / 2 + 10, self.width(), 28)
         painter.drawText(line, Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop, self.caption)
-        if self.height() < 300:
+        if self.height() < 300 or self.empty_title:
             return
         steps = [tr("连接开发板"), tr("识别摄像头并预览"), tr("调整画面后开始采集")]
         step_font = QFont(self.font())
@@ -943,7 +951,7 @@ class StudioWindow(V7Mixin, QWidget):
         self.timer.start(200)
 
     def _action(self, text: str, slot: Any, primary: bool = False, needs: str = "") -> QPushButton:
-        """needs: '' always | board | board_idle | idle | recording | controls | session | board_session."""
+        """needs: '' always | board | board_idle | idle | pc_cam | recording | controls | session | board_session."""
         widget = QPushButton(_button_text(text))
         widget.setProperty("needs", needs)
         widget.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -1377,8 +1385,12 @@ class StudioWindow(V7Mixin, QWidget):
             motion.reveal(self.manual_mode, False)
         width, height, fps, fmt = key.split("|")
         data = self.payload()
-        data.update({"width": width, "height": height, "fps": fps, "format": fmt})
-        STUDIO.update_settings(data)  # same keys/strings as before: width/height/fps/format
+        prefix = mode_prefix(kind)  # v0.12.5: PC mode lives in pc_width/...; board keeps width/...
+        data.update({prefix + "width": width, prefix + "height": height, prefix + "fps": fps, prefix + "format": fmt})
+        STUDIO.update_settings(data)
+        if kind == "pc":
+            self._fit_inspector()
+            return
         for name, value in (("width", width), ("height", height), ("fps", fps)):
             widget = self.fields.get(name)
             if isinstance(widget, QLineEdit):
@@ -1406,7 +1418,7 @@ class StudioWindow(V7Mixin, QWidget):
         if self.mode_captions[kind].text() != caption:
             self.mode_captions[kind].setText(caption)
         combo.setToolTip(tr_msg(note) if note else "")
-        current = saved_mode(settings)
+        current = saved_mode(settings, kind)
         key = mode_key(current) if current else ""
         if (kind == "board" and self._custom_mode) or key not in items:
             index = combo.findData("custom")
@@ -1644,12 +1656,12 @@ class StudioWindow(V7Mixin, QWidget):
         row = QHBoxLayout()
         row.setSpacing(10)
         row.addWidget(self._field("codec", _combo(["ffv1", "copy", "mjpeg"])), 1)
-        row.addWidget(self._action("预览一帧", lambda: STUDIO.snap(self.payload(), "pc")))
+        row.addWidget(self._action("预览一帧", lambda: STUDIO.snap(self.payload(), "pc"), needs="pc_cam"))
         layout.addLayout(row)
         outer.addWidget(card)
         outer.addWidget(self._data_card(), 1)
         self._set_footer("pc",
-            self._action("开始采集", lambda: self.start_capture("pc"), True, needs="idle"),
+            self._action("开始采集", lambda: self.start_capture("pc"), True, needs="pc_cam"),
             self._action("停止并校验", lambda: STUDIO.stop_record(), needs="recording"))
         return page
 
@@ -2137,10 +2149,12 @@ class StudioWindow(V7Mixin, QWidget):
         update_row.addStretch(1)
         self._motion_slot.addSpacing(8)
         self._motion_slot.addWidget(self.update_pill)  # status pill shares the folder row; the toggle row stays 18 px
+        # v0.12.5: the SSH key note shares the update row, unwrapped. A word-wrapped label gave the page
+        # height-for-width, so the side scroll area sized it at its preferred height (scrollbar at 1280x800).
+        key_note = _label("SSH 密钥：id_ed25519_kv260", "tips")
+        key_note.setToolTip(tr("界面显示「Capture Studio SSH 密钥」；磁盘文件名仍为 id_ed25519_kv260（兼容旧版）。"))
+        update_row.addWidget(key_note)
         layout.addLayout(update_row)
-        key_note = _label("界面显示「Capture Studio SSH 密钥」；磁盘文件名仍为 id_ed25519_kv260（兼容旧版）。", "tips")
-        key_note.setWordWrap(True)
-        layout.addWidget(key_note)
         layout.setSpacing(max(6, layout.spacing() - 2))  # v12: make room for the update toggle without a scrollbar
         self._update_bridge = _UpdateBridge()
         self._update_bridge.done.connect(self._update_finished)
@@ -2228,6 +2242,13 @@ class StudioWindow(V7Mixin, QWidget):
         }
         order = {"lab": 0, "pc": 1, "board": 2, "sessions": 3, "settings": 4, "periph": 5}
         changed = self.stack.currentIndex() != order[name]
+        previous = getattr(self, "current_page", "")
+        if changed and "pc" in (name, previous) and previous != name:
+            # PC and board share one viewport: stop the board stream on the PC page and never
+            # carry one source's last frame over to the other page.
+            if name == "pc" and STUDIO.live:
+                STUDIO.stop_live()
+            STUDIO.clear_preview()
         self.stack.setCurrentIndex(order[name])
         if changed and self.isVisible():
             motion.fade_in(self.stack.currentWidget())  # v11: 180 ms fade; instant with reduced motion
@@ -2328,7 +2349,7 @@ class StudioWindow(V7Mixin, QWidget):
             self.live_label.setText(f"{recording['session_id']}{extra}")
         elif getattr(self, "_play_timer", None) is not None and self._play_timer.isActive():
             pass  # v9: playback owns the counter; refresh no longer wipes it
-        elif state.get("live"):
+        elif state.get("live") and self.current_page != "pc":
             self.live_label.setText(tr("实时"))
         else:
             self.live_label.setText("")
@@ -2339,21 +2360,33 @@ class StudioWindow(V7Mixin, QWidget):
             self._sync_list(pc, state.get("pc_devices") or [], str(settings.get("pc_device") or ""))
         self._sync_sessions(state.get("sessions") or [])
         self.gates.setText(tr_msg(str(state.get("gates") or "")))
-        width = settings.get("width") or 640
-        height = settings.get("height") or 480
-        fps = settings.get("fps") or 30
+        result_gates = (state.get('last_session') or {}).get('gates') or {}
+        self.gates.setToolTip('\n'.join(f"{key}: {gate.get('detail', '')}" for key, gate in
+                                      result_gates.items() if isinstance(gate, dict)))
+        view = mode_view(settings, "pc" if self.current_page == "pc" else "board")
+        width = view.get("width") or 640
+        height = view.get("height") or 480
+        fps = view.get("fps") or 30
         self.viewport.set_caption(f"{width} × {height} · {fps} fps")
         logs = state.get("logs") or []
         self._sync_activity([tr_msg(str(item)) for item in logs[-3:]][::-1])
         busy = bool(state.get("busy"))
         live = bool(state.get("live"))
         active = bool(recording.get("session_id"))
+        completing = bool(state.get('completion'))
+        available = not active and not completing and not state.get('start_uncertain')
+        pc_view = self.current_page == "pc"
+        pc_values = [str(item.get("value") if isinstance(item, dict) else item)
+                     for item in (state.get("pc_devices") or [])]
+        pc_device = str(settings.get("pc_device") or "")
+        pc_cam = bool(pc_device) and pc_device in pc_values
         allowed = {
             "": True,
             "board": connected,
-            "board_idle": connected and not active,
-            "idle": not active,
-            "recording": active,
+            "board_idle": connected and available,
+            "idle": available,
+            "pc_cam": available and pc_cam,
+            "recording": active or completing,
             "controls": bool(state.get("controls")),
             "session": bool(self.session_id),
             "board_session": connected and bool(self.session_id),
@@ -2368,15 +2401,25 @@ class StudioWindow(V7Mixin, QWidget):
             if self.live_button.text() != text:
                 self.live_button.setText(text)
         mode = "rec" if active else ("live" if live else "idle")
+        if pc_view:  # the board stream is not shown on the PC page
+            mode = "rec" if active and recording.get("mode") == "pc" else "idle"
         word = {"rec": "录制中", "live": "实时预览中", "idle": "空闲"}[mode]
+        if completing:
+            word = '收尾待完成'
         if active and recording.get("remaining") is not None:
             word_text = f"{tr(word)} · {recording['remaining']} " + ("s" if i18n.LANG == "en" else "秒")
         else:
             word_text = tr(word)
         self.badge.set_state(mode, word_text)  # v11: icon pill; also shows the recording countdown again
-        self.tiles["board"].set_full(tr_msg(str(state.get("board_label") or "未连接")) if connected else tr("未连接"))
-        self.tiles["camera"].set_full(tr_msg(str(state.get("camera_label") or "未发现摄像头")))
-        stream = f"{width} × {height} · {fps} fps · {str(settings.get('format') or '').upper()}"
+        if pc_view:
+            self.tiles["board"].set_full(tr("本机"))
+            self.tiles["camera"].set_full(pc_device if pc_cam else tr("未检测到摄像头"))
+        else:
+            self.tiles["board"].set_full(
+                tr_msg(str(state.get("board_label") or "未连接")) if connected else tr("未连接"))
+            self.tiles["camera"].set_full(tr_msg(str(state.get("camera_label") or "未发现摄像头")))
+        self.viewport.set_empty_title("本机未检测到摄像头" if pc_view and not pc_cam else "")
+        stream = f"{width} × {height} · {fps} fps · {str(view.get('format') or '').upper()}"
         self.tiles["stream"].set_full(stream)
         self.tiles["state"].set_full(word_text)
         self.stream_info.setText(stream)
@@ -2581,7 +2624,7 @@ class StudioWindow(V7Mixin, QWidget):
         self.large.show()
         self.large.raise_()
         self.large.activateWindow()
-        if STUDIO.connected and not STUDIO.live and not STUDIO.busy:
+        if STUDIO.connected and not STUDIO.live and not STUDIO.busy and self.current_page != "pc":
             STUDIO.start_live(self.payload())
 
     def closeEvent(self, event: Any) -> None:

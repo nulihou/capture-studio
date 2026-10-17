@@ -16,7 +16,8 @@ import subprocess
 
 from .textcodec import safe_decode
 from . import board_probe, peripherals, pc_peripherals, templates as capture_templates
-from .camera_modes import apply_mode, choose_mode, list_dshow_modes, mode_label, saved_mode, sort_modes
+from .camera_modes import (apply_mode, choose_mode, list_dshow_modes, migrate_pc_mode, mode_label, mode_view,
+                           saved_mode, sort_modes, to_kind)
 import sys
 import threading
 import time
@@ -30,8 +31,9 @@ from .core import (CaptureOptions, ProcessRecorder, SESSION_ID, audit_session,
 from .camera_pick import REASONS, camera_id, pick_camera
 from .desktop import BoardClient, app_root, list_dshow_cameras
 from .desktop_ui import EXPOSURE_PRESETS
-from .gates import format_gates, preflight_dshow
+from .gates import preflight_dshow
 from .portable_connect import FRESH_BOARD, connection_settings
+from .automation import download_with_retry, require_recorded_session, session_result
 
 WEB = Path(__file__).resolve().parent / "web"
 EXPOSURE_LABELS = {"自动": 0, "手动": 1, "快门优先": 2}
@@ -89,6 +91,10 @@ class Studio:
         self.sessions: list[dict[str, Any]] = []
         self.gates = ""
         self.metrics = ""
+        self.completion: dict[str, Any] | None = None
+        self.last_session: dict[str, Any] = {}
+        self.start_uncertain = False
+        self._closed = threading.Event()
 
     def _settings_path(self) -> Path:
         return app_root() / "studio_settings.json"
@@ -99,6 +105,7 @@ class Studio:
             "operator": "", "notes": "", "duration": "60 秒短检",
             "lens": "", "lighting": "", "distance": "",
             "width": 640, "height": 480, "fps": 30, "format": "mjpeg",
+            "pc_width": "", "pc_height": "", "pc_fps": "", "pc_format": "",
             "bitrate": 20000, "codec": "ffv1", "preset": "看清画面",
             "exposure_mode": "自动", "exposure_absolute": "",
             "power": "不改", "wb": "不改", "focus": "不改",
@@ -110,6 +117,7 @@ class Studio:
             if item.kind == "int":
                 defaults[item.name] = ""
         path = self._settings_path()
+        saved: Any = {}
         if path.is_file():
             try:
                 saved = json.loads(path.read_text(encoding="utf-8"))
@@ -117,6 +125,7 @@ class Studio:
                     defaults.update({key: saved[key] for key in defaults if key in saved})
             except (OSError, ValueError):
                 pass
+        migrate_pc_mode(defaults, saved if isinstance(saved, dict) else {})
         link = connection_settings()
         defaults["host"] = link.get("host", "")
         defaults["user"] = link.get("user", "ubuntu")
@@ -151,6 +160,8 @@ class Studio:
     def state(self) -> dict[str, Any]:
         with self.lock:
             recording = dict(self.recording or {})
+            for private in ('root', 'host', 'board_root'):
+                recording.pop(private, None)
             if recording.get("started") and recording.get("seconds"):
                 left = int(recording["seconds"] - (time.monotonic() - recording["started"]))
                 recording["remaining"] = max(0, left)
@@ -175,6 +186,10 @@ class Studio:
                 "sessions": self.sessions,
                 "gates": self.gates,
                 "metrics": self.metrics,
+                "completion": {k: v for k, v in (self.completion or {}).items()
+                               if k in ('session_id', 'mode', 'stage')},
+                "last_session": dict(self.last_session),
+                "start_uncertain": self.start_uncertain,
                 "board_modes": list(self.board_modes),
                 "pc_modes": list(self.pc_modes),
                 "modes_note": self.modes_note,
@@ -203,11 +218,11 @@ class Studio:
                     self.settings[key] = payload[key]
             self._save()
 
-    def _work(self, label: str, func: Any) -> None:
+    def _work(self, label: str, func: Any, *, retryable: bool = True) -> bool:
         with self.lock:
             if self.busy:
                 self._log("有操作正在进行")
-                return
+                return False
             self.busy = True
             self.status = label
             self.last_error = ""
@@ -220,12 +235,13 @@ class Studio:
                 with self.lock:
                     self._log(str(exc))
                     self.last_error = str(exc) or type(exc).__name__
-                    self._retry = (label, func)
+                    self._retry = (label, func) if retryable else None
             finally:
                 with self.lock:
                     self.busy = False
 
         threading.Thread(target=run, daemon=True).start()
+        return True
 
     def discover(self) -> None:
         def work() -> None:
@@ -240,6 +256,15 @@ class Studio:
         self._work("正在查找", work)
 
     def connect(self, payload: dict[str, Any]) -> None:
+        with self.lock:
+            held = self.recording or self.completion or {}
+            if held.get('mode') == 'pc':
+                self._log('请先完成本机录制收尾，再连接开发板')
+                return
+            if held and any(k in held and str(payload.get(k, self.settings.get(k))) != str(held[k])
+                            for k in ('host', 'board_root')):
+                self._log('上一会话尚未完成，请连接原开发板后收尾')
+                return
         self.update_settings(payload)
         password = str(payload.get("password") or "")
 
@@ -265,6 +290,14 @@ class Studio:
             if not args.host:
                 raise RuntimeError("填写开发板地址，或先查找")
             connection = open_connection(args)
+            current_status = connection.get('status') or {}
+            active_id = str((current_status.get('session') or {}).get('session_id') or '')
+            with self.lock:
+                held_id = (self.recording or self.completion or {}).get('session_id')
+            if current_status.get('recording') and (not SESSION_ID.fullmatch(active_id) or
+                                                   held_id and held_id != active_id):
+                connection['tunnel'].terminate()
+                raise RuntimeError('开发板活动会话无法与当前状态核对，请查询会话；不会接管其他录制')
             info = connection["client"].request("GET", "/devices")
             cameras = info.get("device_info") or []
             device = str(connection.get("device") or "")
@@ -289,7 +322,25 @@ class Studio:
                     connection.get("selection_note") or "请选择摄像头")
                 self.sync_note = connection.get("sync_note") or connection.get("selection_note") or ""
                 self._log(self.sync_note or f"已连接 {self.camera_label}")
-            self._detect_board_modes()  # automatic; never fails the connection
+                status = connection.get('status') or {}
+                active = status.get('session') or {}
+                active_id = str(active.get('session_id') or '')
+                if status.get('recording'):
+                    if not SESSION_ID.fullmatch(active_id):
+                        raise RuntimeError('开发板正在录制，但没有可核对的会话编号，请先查询会话')
+                    if self.completion and self.completion.get('session_id') != active_id:
+                        raise RuntimeError('开发板另有活动会话，请先完成原会话取回，不会接管其他录制')
+                    previous = self.recording or {}
+                    if not self.completion:
+                        self.recording = {'mode': 'board', 'session_id': active_id,
+                                          'seconds': None, 'started': time.monotonic(),
+                                          'root': previous.get('root') or self._capture_root(),
+                                          'host': args.host, 'board_root': args.board_root}
+                    self.output_once = None
+                    self._log(f'已恢复正在录制的会话 {active_id}；可停止并取回')
+                self.start_uncertain = False
+            if not self.recording:
+                self._detect_board_modes()  # never reconfigure an adopted active session
             self._probe_board(args.user, args.host, key)  # board-agnostic info + live status
 
         self._work("正在连接", work)
@@ -389,7 +440,7 @@ class Studio:
         if name not in data:
             raise KeyError(name)
         with self.lock:
-            payload = capture_templates.apply(dict(self.settings), data[name])
+            payload = to_kind(capture_templates.apply(dict(self.settings), data[name]), mode, self.settings)
         payload["_output_once"] = payload.pop("output")
         if start:
             self.start_record(payload, mode)
@@ -453,9 +504,9 @@ class Studio:
         with self.lock:
             setattr(self, f"{kind}_modes", modes)
             self.modes_note = note
-            chosen = choose_mode(modes, saved_mode(self.settings))
-            if chosen is not None and chosen != saved_mode(self.settings):
-                apply_mode(self.settings, chosen)
+            chosen = choose_mode(modes, saved_mode(self.settings, kind))
+            if chosen is not None and chosen != saved_mode(self.settings, kind):
+                apply_mode(self.settings, chosen, kind)
                 self._save()
                 self._log(f"已选用 {mode_label(chosen)}")
             elif modes:
@@ -530,7 +581,7 @@ class Studio:
         self._work("正在列出本机摄像头", work)
 
     def _options(self, mode: str) -> CaptureOptions:
-        settings = self.settings
+        settings = mode_view(self.settings, mode)  # PC and board keep separate capture modes
         preset = str(settings.get("preset") or "看清画面")
         if preset in EXPOSURE_PRESETS:
             mode_label, absolute, _note = EXPOSURE_PRESETS[preset]
@@ -589,6 +640,12 @@ class Studio:
     def _remember_frame(self, body: bytes) -> None:
         with self.lock:
             self.preview = body
+            self.preview_seq += 1
+
+    def clear_preview(self) -> None:
+        """Drop the last frame so the PC and board pages never show each other's picture."""
+        with self.lock:
+            self.preview = None
             self.preview_seq += 1
 
     def start_live(self, payload: dict[str, Any]) -> None:
@@ -699,25 +756,36 @@ class Studio:
         self._work("正在读取参数", work)
 
     def start_record(self, payload: dict[str, Any], mode: str) -> None:
+        # Do not discard the resume action or edit its settings on a duplicate click.
+        with self.lock:
+            if self.recording or self.completion or self.start_uncertain:
+                self._log('上一会话尚未完成，请先停止并取回、重试收尾或重新连接查询')
+                return
         payload = dict(payload)
         once = payload.pop("_output_once", None)
-        with self.lock:
-            if once:
-                value = Path(str(once))
-                self.output_once = (value if value.is_absolute() else app_root() / value).resolve()
-            else:
-                self.output_once = None
-        self.update_settings(payload)
 
         def work() -> None:
-            self.stop_live(remote=False, wait=True)
+            with self.lock:
+                if self.recording or self.completion:
+                    raise RuntimeError('上一会话尚未完成，请先停止并取回或重试收尾')
+                if self.start_uncertain:
+                    raise RuntimeError('上次开始请求结果未确认，请重新连接以查询会话；不会重复开始录制')
+                if mode not in ('pc', 'board'):
+                    raise ValueError('unknown capture mode')
+                value = Path(str(once)) if once else None
+                self.output_once = (value if value.is_absolute() else app_root() / value).resolve() if value else None
+            self.update_settings(payload)
+            self._tool('ffprobe')  # fail before opening the camera, not after recording
+            root = self._capture_root()
+            root.mkdir(parents=True, exist_ok=True)
+            if shutil.disk_usage(root).free < 100_000_000:
+                raise RuntimeError('磁盘剩余空间不足 100 MB')
+            self.stop_live(remote=True, wait=True)
             if mode == "pc":
                 options = self._options("pc_usb")
                 ffmpeg = self._tool("ffmpeg")
                 root = self._capture_root()
                 root.mkdir(parents=True, exist_ok=True)
-                if shutil.disk_usage(root).free < 100_000_000:
-                    raise RuntimeError("磁盘剩余空间不足 100 MB")
                 preflight = preflight_dshow(ffmpeg, options)
                 session = new_session(root, "pc_usb", options)
                 update_session(session, image_preflight=preflight, exposure_applied="not_applied")
@@ -726,7 +794,8 @@ class Studio:
                 with self.lock:
                     self.local_recorder = recorder
                     self.recording = {"mode": "pc", "session_id": session.name,
-                                      "seconds": options.planned_seconds, "started": time.monotonic()}
+                                      "seconds": options.planned_seconds, "started": time.monotonic(),
+                                      "root": root}
                     self._log(f"电脑采集中 {session.name}")
                 self._arm(session.name, options.planned_seconds)
                 return
@@ -738,62 +807,149 @@ class Studio:
             if has_image_tuning(options):
                 with self.lock:
                     self._log("已修改图像参数，使用通用采集")
-            value = client.request("POST", "/start", options.__dict__, timeout=60)
+            # A lost POST response is ambiguous: inspect, never blindly replay it.
+            try:
+                value = client.request("POST", "/start", options.__dict__, timeout=60)
+            except Exception as start_error:
+                with self.lock:
+                    self.start_uncertain = True
+                try:
+                    status = client.request('GET', '/status')
+                    if not status.get('recording') and str(start_error).startswith('Board returned 4'):
+                        with self.lock:
+                            self.start_uncertain = False
+                        raise start_error
+                    active = status.get('session') or {}
+                    if not status.get('recording') or active.get('device') != options.device:
+                        raise RuntimeError('no matching active session')
+                    value = {'session_id': active['session_id']}
+                    with self.lock:
+                        self._log('开始响应丢失；已查询并恢复同设备正在录制的会话')
+                except Exception as exc:
+                    if exc is start_error:
+                        raise
+                    raise RuntimeError('开始请求结果未确认，请重新连接并查询会话；不会自动重复开始') from exc
+            if not SESSION_ID.fullmatch(str(value.get('session_id') or '')):
+                with self.lock:
+                    self.start_uncertain = True
+                raise RuntimeError('开始响应缺少会话编号，请重新连接并查询会话')
             with self.lock:
+                self.start_uncertain = False
                 self.recording = {"mode": "board", "session_id": value["session_id"],
-                                  "seconds": options.planned_seconds, "started": time.monotonic()}
+                                  "seconds": options.planned_seconds, "started": time.monotonic(),
+                                  "root": root, "host": self.settings.get('host'),
+                                  "board_root": self.settings.get('board_root')}
                 self._log(f"采集中 {value['session_id']}")
             self._arm(value["session_id"], options.planned_seconds)
 
-        self._work("正在开始采集", work)
+        self._work("正在开始采集", work, retryable=False)
 
     def _arm(self, session_id: str, seconds: int | None) -> None:
-        if not seconds:
-            return
-
         def wait() -> None:
-            time.sleep(seconds)
-            for _ in range(30):
+            deadline = time.monotonic() + seconds if seconds else None
+            while not self._closed.wait(0.5):
                 with self.lock:
                     current = (self.recording or {}).get("session_id")
                     busy = self.busy
+                    local = self.local_recorder
                 if current != session_id:
                     return
-                if not busy:
-                    self.stop_record()
+                try:
+                    exited = local is not None and not local.status()['running']
+                except Exception as exc:
+                    self._progress(f'录制状态查询失败：{exc}；请手动停止并取回')
+                    exited = False
+                    if deadline is None:
+                        return
+                due = deadline is not None and time.monotonic() >= deadline
+                if not busy and (exited or due) and self.stop_record(expected_session_id=session_id):
                     return
-                time.sleep(1)
 
         threading.Thread(target=wait, daemon=True).start()
 
-    def stop_record(self) -> None:
+    def _progress(self, text: str) -> None:
+        with self.lock:
+            self._log(text)
+
+    def _complete_recording(self) -> None:
+        """Resume download/audit from the same session; stopping happens only when still active."""
+        with self.lock:
+            recording = dict(self.recording or {})
+            pending = self.completion
+            recorder = self.local_recorder
+            client = self.client
+        if pending is None:
+            sid = str(recording.get('session_id') or '')
+            if not SESSION_ID.fullmatch(sid):
+                raise RuntimeError('没有可收尾的会话，请先查询会话')
+            if recording.get('mode') == 'pc':
+                if recorder is None:
+                    raise RuntimeError('本机录制器状态丢失，请从会话页校验已保存文件')
+                self._progress('正在停止本机录制')
+                manifest = recorder.stop()
+                session = recorder.session
+            else:
+                if client is None:
+                    raise RuntimeError('尚未连接开发板；保留会话，连接后可继续收尾')
+                if any(k in recording and recording[k] != self.settings.get(k) for k in ('host', 'board_root')):
+                    raise RuntimeError('请连接原开发板后收尾；不会停止其他来源的录制')
+                self._progress('正在查询会话并停止录制')
+                status = client.request('GET', '/status')
+                active = status.get('session') or {}
+                if status.get('recording'):
+                    if active.get('session_id') != sid:
+                        raise RuntimeError('开发板活动会话与当前会话不同，不会停止其他录制')
+                    manifest = client.request('POST', '/stop', {}, timeout=3600)
+                else:
+                    # Process may have stopped on its own, or a previous stop response was lost.
+                    manifest = client.request('GET', f'/sessions/{sid}')
+                session = None
+            require_recorded_session(manifest, sid)
+            pending = {'session_id': sid, 'mode': recording['mode'], 'manifest': manifest,
+                       'root': recording.get('root') or self._capture_root(), 'session': session, 'stage': 'stopped',
+                       'host': self.settings.get('host'), 'board_root': self.settings.get('board_root')}
+            with self.lock:
+                self.completion = pending
+                self.recording = None
+                self.local_recorder = None
+        if pending['session'] is None:
+            if client is None or any(self.settings.get(k) != pending[k] for k in ('host', 'board_root')):
+                raise RuntimeError('请重新连接原开发板后重试取回；不会切换会话来源')
+            pending['stage'] = 'downloading'
+            self._progress('正在取回文件并核对大小与 SHA-256')
+            pending['session'] = download_with_retry(
+                lambda: client.download_session(pending['session_id'], pending['root']), self._progress)
+        session = Path(pending['session'])
+        if pending['manifest'].get('status') != 'failed':
+            pending['stage'] = 'auditing'
+            self._progress('正在校验录像与四关结果')
+            audit_session(session, self._tool('ffprobe'))
+        manifest = load_json(session / 'session.json')
+        require_recorded_session(manifest, pending['session_id'])
+        result = session_result(manifest)
+        result['path'] = str(session)
+        with self.lock:
+            self.last_session = result
+            self.gates = result['summary']
+            self.completion = None
+            self.sessions = [row for row in self.sessions if row.get('session_id') != pending['session_id']]
+            self.sessions.insert(0, {'session_id': pending['session_id'], 'path': str(session),
+                                    'status': manifest.get('status'), 'created_utc': manifest.get('created_utc', '')})
+            for key, name in (('integrity', '完整性'), ('frame_rate', '帧率'), ('image', '画面'), ('closeout', '收尾')):
+                gate = result['gates'][key]
+                if gate['status'] != 'pass':
+                    self._log(f"{name}：{gate.get('detail') or '尚无证据'}")
+            self._log(f"已完成收尾 {session.name} · {result['summary']}")
+
+    def stop_record(self, expected_session_id: str | None = None) -> bool:
         def work() -> None:
             with self.lock:
-                recording = dict(self.recording or {})
-                recorder = self.local_recorder
-                client = self.client
-            if recording.get("mode") == "pc" and recorder is not None:
-                manifest = recorder.stop()
-                audit = None
-                if manifest.get("status") == "recorded":
-                    audit = audit_session(recorder.session, self._tool("ffprobe"))
-                with self.lock:
-                    self.local_recorder = None
-                    self.recording = None
-                    self.gates = format_gates(audit) if isinstance(audit, dict) else ""
-                    self._log(f"电脑采集结束 {manifest.get('status', '')}")
-                return
-            if client is None:
-                raise RuntimeError("尚未连接开发板")
-            manifest = client.request("POST", "/stop", {}, timeout=3600)
-            session = client.download_session(manifest["session_id"], self._capture_root())
-            audit = audit_session(session, self._tool("ffprobe"))
-            with self.lock:
-                self.recording = None
-                self.gates = format_gates(audit) if isinstance(audit, dict) else ""
-                self._log(f"已取回 {session.name}")
+                current = (self.recording or self.completion or {}).get('session_id')
+                if expected_session_id is not None and current != expected_session_id:
+                    return
+            self._complete_recording()
 
-        self._work("正在停止并取回", work)
+        return self._work("正在停止并取回", work)
 
     def list_sessions(self, where: str) -> None:
         def work() -> None:
@@ -850,14 +1006,17 @@ class Studio:
     def audit(self, session_id: str) -> None:
         def work() -> None:
             session = self.session_path(session_id)
-            result = audit_session(session, self._tool("ffprobe"))
+            audit_session(session, self._tool("ffprobe"))
+            result = session_result(load_json(session / 'session.json'))
             with self.lock:
-                self.gates = format_gates(result) if isinstance(result, dict) else ""
-                self._log(f"已校验 {session_id}")
+                self.gates = result['summary']
+                self.last_session = dict(result, path=str(session))
+                self._log(f"已校验 {session_id} · {result['summary']}")
 
         self._work("正在校验", work)
 
     def close(self) -> None:
+        self._closed.set()
         self._stop_monitor()
         self.stop_live(remote=True, wait=False)
         with self.lock:

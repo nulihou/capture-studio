@@ -22,6 +22,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 PACKAGE = Path(__file__).resolve().parent
 REPOSITORY = PACKAGE.parent
+sys.path.insert(0, str(REPOSITORY))
 DIST = PACKAGE / "dist"
 
 
@@ -60,8 +61,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ffmpeg-bin", type=Path, required=True)
     parser.add_argument('--dist-dir', type=Path, default=DIST)
+    parser.add_argument('--work-dir', type=Path, default=PACKAGE / 'build_tmp_portable')
     args = parser.parse_args()
     DIST = args.dist_dir.resolve()
+    work = args.work_dir.resolve()
+    if (DIST / 'CaptureStudio').exists() or work.exists():
+        raise SystemExit('Use fresh dist/work directories; existing files will not be overwritten or cleaned')
 
     local_build_deps = PACKAGE / ".build_deps"
     if local_build_deps.is_dir():
@@ -76,7 +81,7 @@ def main() -> None:
     BOARD_FILES = importlib.import_module(f"{PACKAGE.name}.board_sync").BOARD_FILES
     pyinstaller_args = [
         str(PACKAGE / "launcher.py"),
-        "--noconfirm", "--clean", "--onedir", "--windowed",
+        "--onedir", "--windowed",
         "--name", "CaptureStudio",
         "--paths", str(REPOSITORY),
         "--hidden-import", f"{PACKAGE.name}.portable_connect",
@@ -95,8 +100,8 @@ def main() -> None:
         "--add-data", f"{PACKAGE / 'assets' / 'icons'}{os.pathsep}{PACKAGE.name}/assets/icons",
         "--icon", str(PACKAGE / "assets" / "app.ico"),
         "--distpath", str(DIST),
-        "--workpath", str(PACKAGE / "build_tmp_portable"),
-        "--specpath", str(PACKAGE / "build_tmp_portable"),
+        "--workpath", str(work),
+        "--specpath", str(work),
     ]
     for name in BOARD_FILES:
         pyinstaller_args.extend(["--add-data", f"{PACKAGE / name}{os.pathsep}capture_studio"])
@@ -109,7 +114,6 @@ def main() -> None:
                            cwd=REPOSITORY, env=environment, timeout=45)
     report_path = bundle / "self_test.json"
     report = json.loads(report_path.read_text(encoding="utf-8")) if report_path.is_file() else {}
-    report_path.unlink(missing_ok=True)
     if smoke.returncode != 0 or not report.get("ok"):
         raise SystemExit(f"portable bundle self-test failed: {report}")
     (bundle / "README.txt").write_text(
@@ -140,12 +144,10 @@ def main() -> None:
         # Developer board notes under docs/, not a root BOARD_README that looks like a user manual.
         if board_agent_doc.is_file():
             archive.write(board_agent_doc, "docs/board_agent.md")
-    for personal in ("board_connection.json", "capture_settings.json", "self_test.json",
-                     "connection_self_test.json", "studio_settings.json", "ui_prefs.json", "capture_templates.json"):
-        (bundle / personal).unlink(missing_ok=True)
-    captured = bundle / "captures"
-    if captured.exists():
-        shutil.rmtree(captured)
+    # Fresh builds contain no user data. Stop rather than deleting unexpected settings or captures.
+    for personal in ('board_connection.json', 'studio_settings.json', 'ui_prefs.json', 'captures'):
+        if (bundle / personal).exists():
+            raise SystemExit(f'Unexpected user data in fresh bundle; preserved for inspection: {personal}')
     # Optional connect-mode launcher (users can also open CaptureStudio.exe directly).
     (bundle / "连接开发板.cmd").write_text(
         '@echo off\r\ncd /d "%~dp0"\r\nstart "" "%~dp0CaptureStudio.exe" --connect\r\n',

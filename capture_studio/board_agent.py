@@ -86,6 +86,8 @@ class AgentState:
             self._finish_exited()
             if self.recorder is not None:
                 raise RuntimeError("another capture is recording")
+            if shutil.disk_usage(self.root).free < 100_000_000:
+                raise RuntimeError('开发板存储剩余不足 100 MB，已取消开始采集')
             self.live_stop()
             from .gates import gray_from_png, judge_luminance, preflight_native, reject_if_dim
             from .native_source import effective_exposure, uses_native

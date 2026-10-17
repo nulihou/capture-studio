@@ -82,7 +82,7 @@ class HealthTest(unittest.TestCase):
         self.assertEqual(mj["basis"], "upper")
         self.assertEqual(raw["basis"], "exact")
         self.assertAlmostEqual(raw["mbps"], 1920 * 1080 * 30 * 2 * 8 / 1e6)
-        self.assertEqual(raw["seconds"], 600)
+        self.assertEqual(raw["seconds"], 650)
 
     def test_checks(self):
         s = {"width": "1920", "height": "1080", "fps": "30", "format": "raw", "duration": "60 秒短检"}

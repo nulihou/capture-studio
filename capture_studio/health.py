@@ -9,7 +9,7 @@ from typing import Any
 # format/codec actually wrote; with no history the figure is an explicit upper bound (uncompressed size).
 YUYV_BYTES_PER_PIXEL = 2.0
 BASIS_TEXT = {"exact": "按格式计算", "bitrate": "按目标码率", "measured": "按最近会话实测", "upper": "上限（按未压缩计）"}
-DURATIONS = {"60 秒短检": 60, "10 分钟关口": 600, "手动停止": 600}  # manual: plan for 10 minutes
+DURATIONS = {"60 秒短检": 60, "10 分钟关口": 650, "手动停止": 600}  # 650 s includes warmup; manual budget is advisory
 
 
 def seconds_for(duration: str) -> int:
@@ -70,6 +70,8 @@ def bytes_per_second(width: int, height: int, fps: float, fmt: str, codec: str =
 
 
 def estimate(settings: dict[str, Any], mode: str = "pc", history: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    from .camera_modes import mode_view
+    settings = mode_view(settings, mode)
     def num(key: str, default: float) -> float:
         try:
             return float(settings.get(key) or default)
@@ -123,6 +125,8 @@ def check(settings: dict[str, Any], mode: str, local_free: float | None, board_s
           camera_label: str = "", link_mbps: float | None = None, last_audit: dict[str, Any] | None = None,
           board_info: dict[str, Any] | None = None, history: list[dict[str, Any]] | None = None) -> list[dict[str, str]]:
     """Return [{level: ok|warn|fail, title, detail, fix}] — every item actionable."""
+    from .camera_modes import mode_view
+    settings = mode_view(settings, mode)
     est = estimate(settings, mode, history)
     items: list[dict[str, str]] = []
 

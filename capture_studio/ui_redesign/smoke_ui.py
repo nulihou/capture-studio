@@ -2,6 +2,10 @@
 Usage: python smoke_ui.py <package>"""
 import importlib, os, sys, traceback
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+if os.name == "nt" and not os.environ.get("QT_QPA_FONTDIR"):
+    # The offscreen platform has no font database on Windows unless pointed at the system fonts;
+    # without it every text width is measured with a fallback ~2x too wide and layout checks fail.
+    os.environ["QT_QPA_FONTDIR"] = os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts")
 pkg = sys.argv[1]
 i18n = importlib.import_module(pkg + ".i18n"); i18n.LANG = "zh"
 i18n.set_lang = lambda lang: setattr(i18n, "LANG", lang)  # do not persist during tests
@@ -22,6 +26,7 @@ def state(**kw):
     with S.lock:
         S.connected = kw.get("connected", False); S.busy = kw.get("busy", False)
         S.live = kw.get("live", False); S.recording = kw.get("recording")
+        S.completion = kw.get('completion'); S.start_uncertain = kw.get('start_uncertain', False)
         S.controls = kw.get("controls", []); S.sessions = kw.get("sessions", [])
         S.board_label = "开发板：KV260" if S.connected else "未连接"
     win.refresh(S.state())
@@ -49,6 +54,12 @@ try:
     check("recording: start disabled", not any(b.isEnabled() for b in btn("开始采集")))
     check("recording: badge", win.badge.text() == "录制中")
     calls.clear(); btn("停止并取回")[0].click(); check("stop -> stop_record", calls == ["stop_record"])
+    state(connected=True, completion={'session_id': 'S1', 'stage': 'auditing'})
+    check('completion: new start disabled', not any(b.isEnabled() for b in btn('开始采集')))
+    check('completion: resume enabled', all(b.isEnabled() for b in btn('停止并取回')))
+    check('completion: badge does not claim idle', win.badge.text() == '收尾待完成')
+    state(connected=True, start_uncertain=True)
+    check('uncertain start: start disabled', not any(b.isEnabled() for b in btn('开始采集')))
     state(connected=True, busy=True)
     check("busy: every action disabled", not any(b.isEnabled() for b in win.actions))
     state(connected=True, sessions=[{"session_id": "A", "status": "recorded"}])
@@ -70,6 +81,19 @@ try:
     for page in ("lab", "pc", "board", "periph", "sessions", "settings"):
         win.show_page(page); app.processEvents()
     check("all pages navigable", win.current_page == "settings")
+    # v0.12.5: PC page never shows the board stream / board cards
+    win.show_page("board"); state(connected=True, live=True); calls.clear()
+    S.pc_devices = []; S.settings["pc_device"] = ""
+    win.show_page("pc"); state(connected=True)
+    tiles = " ".join(t.text() + t.toolTip() for t in win.tiles.values())
+    check("pc page: board live stopped", "stop_live" in calls and not S.live and S.preview is None)
+    check("pc page: cards do not show board", "KV260" not in tiles and win.tiles["board"].toolTip() == "本机")
+    check("pc page: no camera -> placeholder + start disabled",
+          win.viewport.empty_title == "本机未检测到摄像头" and not any(b.isEnabled() for b in win.actions
+                                                                if b.property("needs") == "pc_cam"))
+    win.show_page("board"); state(connected=True)
+    check("board page: cards show board again", "KV260" in " ".join(t.text() + t.toolTip() for t in win.tiles.values()))
+    win.show_page("settings")
     win.open_large(); app.processEvents(); check("large view timer runs when shown", win.large.timer.isActive())
     win.large.hide(); check("large view timer stops when hidden", not win.large.timer.isActive())
     with S.lock: S.logs = []
@@ -445,9 +469,11 @@ try:
     check("inventory: board + pc + text file", len(inv_data["pc_peripherals"]) == 2 and inv_data["board_peripherals"] and list(out_dir.glob("*.txt")))
     win.periph_source.setCurrentIndex(0)
     # PC custom mode
+    board_before = tuple(S.settings[k] for k in ("width", "height", "fps", "format"))
     win.show_page("pc"); ok = win.pc_custom_mode(("1024", "768", "15", "raw")); state(connected=True); pump(1)
     combo = win.mode_combos["pc"]
-    check("pc custom mode stored as strings", ok and (S.settings["width"], S.settings["fps"], S.settings["format"]) == ("1024", "15", "raw"))
+    check("pc custom mode stored as strings", ok and (S.settings["pc_width"], S.settings["pc_fps"], S.settings["pc_format"]) == ("1024", "15", "raw"))
+    check("pc custom mode leaves the board mode alone", tuple(S.settings[k] for k in ("width", "height", "fps", "format")) == board_before)
     check("pc custom mode shown in dropdown", combo.currentData() == "custom" and "1024" in combo.currentText())
     # (8) dark mode
     win.set_theme("深色"); pump(2)
@@ -590,7 +616,7 @@ try:
     check("v11: health uses icons, no text marks", len(labels) == 3 and not any(m in texts for m in ("✓", "✕", ">!<")))
     hd.close()
     check("v11: reduced-motion setting present", hasattr(win, "reduced_motion"))
-    check("v11: version 0.12.4", importlib.import_module(pkg).__version__ == "0.12.4")
+    check("version: 0.12.5", importlib.import_module(pkg).__version__ == "0.12.5")
     mo.set_reduced(True)
 except Exception:
     results.append("ERROR  " + traceback.format_exc())

@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from . import credstore, discovery, errors, health, i18n, icons, lan_scan, serial_term, session_review, templates, theme
+from .camera_modes import mode_view, to_kind
 from .i2c_hints import describe as i2c_describe
 from .i18n import tr, tr_msg
 from .product import STUDIO
@@ -611,6 +612,7 @@ class V7Mixin:
                 return
         data = dict(STUDIO.state()["settings"])
         data.update(self.payload())
+        data = mode_view(data, self._capture_mode())  # the PC page saves the PC mode
         templates.save(STUDIO.templates_path(), name, templates.capture(data, scene or ""))
         with STUDIO.lock:
             STUDIO._log(f"已保存模板 {name}")
@@ -621,7 +623,7 @@ class V7Mixin:
         if data is None:
             return
         with STUDIO.lock:
-            preview = templates.apply(dict(STUDIO.settings), data)
+            preview = to_kind(templates.apply(dict(STUDIO.settings), data), mode, STUDIO.settings)
         merged = dict(STUDIO.state()["settings"])
         merged.update(preview)
         if not self._health_gate(mode, merged):
@@ -829,7 +831,7 @@ class V7Mixin:
         if self._was_recording and not session:
             self.notify(tr("采集完成"), tr_msg(f"会话 {self._was_recording} 已结束"))
         self._was_recording = session
-        if self._auto_preview and state.get("connected") and not state.get("busy"):
+        if self._auto_preview and state.get("connected") and not state.get("busy") and self.current_page != "pc":
             self._auto_preview = False
             if not state.get("live"):
                 STUDIO.start_live(self.payload())
@@ -1103,7 +1105,7 @@ class V7Mixin:
             values = (match.group(1), match.group(2), match.group(3), (match.group(4) or "mjpeg").lower())
         width, height, fps, fmt = values
         data = self.payload()
-        data.update({"width": width, "height": height, "fps": fps, "format": fmt})
+        data.update({"pc_width": width, "pc_height": height, "pc_fps": fps, "pc_format": fmt})
         STUDIO.update_settings(data)
         with STUDIO.lock:
             STUDIO._log(f"已选用 {width}×{height} · {fps} fps · {fmt.upper()}")

@@ -78,12 +78,12 @@ class BoardClient:
         if not SESSION_ID.fullmatch(session_id):
             raise ValueError("invalid board session ID")
         manifest = self.request("GET", f"/sessions/{session_id}")
-        if manifest.get("status") not in ("recorded", "audited", "needs_review"):
+        if manifest.get("status") not in ("recorded", "audited", "needs_review", "failed"):
             raise RuntimeError("board session must be stopped before download")
         session = output_root.expanduser().resolve() / session_id
         session.mkdir(parents=True, exist_ok=True)
         items = manifest.get("files", [])
-        if not isinstance(items, list) or not items:
+        if not isinstance(items, list) or (not items and manifest.get('status') != 'failed'):
             raise RuntimeError("board session has no recorded files")
         for item in items:
             relative = item["path"]
