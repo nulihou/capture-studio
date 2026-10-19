@@ -595,6 +595,18 @@ MESSAGES.update({k: v for k, v in _V124.items() if k not in MESSAGES})
 
 _V127 = {
     "加载 FPGA": "Load FPGA",
+    "FPGA 编译文件": "FPGA app",
+    "当前没有加载的应用": "No app is loaded",
+    "未加载应用": "No app loaded",
+    "运行中": "Running",
+    "未知": "Unknown",
+    "上电": "Power up",
+    "写入中": "Programming",
+    "当前应用": "Current app",
+    "当前状态": "Current state",
+    "选择编好的应用目录或 zip，里面要有：": "Choose a compiled app folder or zip. It needs:",
+    "一个 .xclbin": "one .xclbin",
+    "一个 .dtbo": "one .dtbo",
     "选择 FPGA 应用目录": "Choose the FPGA app folder",
     "sudo 不需要密码就留空": "Leave blank when sudo does not need a password",
     "加载": "Load",

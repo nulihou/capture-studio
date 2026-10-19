@@ -113,6 +113,12 @@ try:
         check(f"footer on {page} = {texts}", shown == [w._button_text(t) for t in texts])
     win.show_page("settings"); app.processEvents(); check("duration hidden on settings", not win.duration_bar.isVisible())
     win.show_page("pc"); app.processEvents(); check("duration shown on pc", win.duration_bar.isVisible())
+    duration = win.fields["duration"]
+    duration.setCurrentIndex(duration.findData("自定义")); app.processEvents()
+    hint = win.duration_hint
+    hint_text = "10 秒到 2 小时，到点自动停止"
+    check("custom duration hint is fully visible", hint.isVisible() and hint.text() == hint_text and hint.width() >= hint.fontMetrics().horizontalAdvance(hint_text))
+    duration.setCurrentIndex(0)
     win.show_page("lab"); win._show_tab(2); win.set_language("en"); app.processEvents()
     check("language switch keeps lab tab", win.lab_stack.currentIndex() == 2)
     win.set_language("zh")
@@ -203,6 +209,7 @@ try:
     check("kv260: model from device tree", win.board_model._full == "ZynqMP SMK-K26 Rev1/B/A")
     check("kv260: board_label uses detected model", S.board_label == "ZynqMP SMK-K26 Rev1/B/A")
     check("kv260: FPGA row (xmutil app) shown", win.info_cells["fpga"][1].isVisible() and "k26-starter-kits" in win.info_cells["fpga"][1]._full)
+    check("kv260: FPGA sits in the left nav", win.fpga_card.isVisible() and win.fpga_card.parent() is win.nav and win.stage.x() == 24 and win.fpga_button not in win.board_live_buttons and "k26-starter-kits" in win.fpga_current.text())
     check("kv260: monitor polls every 2 s", FakeMonitor.last.interval == 2.0)
     check("kv260: live cpu/mem/temp/disk/net", {"cpu", "mem", "temp", "disk", "net"} <= set(win.board_status_rows))
     check("kv260: cpu value 60%", win.status_cells["cpu"][2].text().startswith("60%"))
@@ -213,7 +220,7 @@ try:
     board("JETSON", "@@gpu\n734\n")
     check("reconnect stops previous monitor", first.stopped)
     check("jetson: L4T in system row", "L4T R35.4.1" in win.info_cells["os"][1]._full)
-    check("jetson: GPU row visible, FPGA hidden", win.status_cells["gpu"][0].isVisible() and not win.info_cells["fpga"][1].isVisible())
+    check("jetson: GPU row visible, FPGA hidden", win.status_cells["gpu"][0].isVisible() and not win.info_cells["fpga"][1].isVisible() and not win.fpga_card.isVisible())
     board("RK3588", "@@npu\nNPU load:  Core0: 30%, Core1: 10%, Core2:  2%,\n")
     check("rk3588: NPU 14%", win.status_cells["npu"][2].text() == "14%")
     board("RPI")
@@ -558,7 +565,7 @@ try:
     check("v9 en: quick panel has no Chinese", not [t for t in texts if cjk.search(t)])
     win.show_page("periph"); win.refresh(S.state()); pump(2)
     check("v9 en: periph note not elided", win.periph_note.text() == win.periph_note._full and not cjk.search(win.periph_note.text()))
-    check("v9 en: sidebar sections title case", all(x.text() in ("Workspace", "Language", "Appearance") for x in win.findChildren(v7.QLabel) if x.objectName() == "section"))
+    check("v9 en: sidebar sections title case", all(x.text() in ("Workspace", "Language", "Appearance", "FPGA app") for x in win.findChildren(v7.QLabel) if x.objectName() == "section"))
     win.show_page("pc"); win.refresh(S.state())
     check("v9 en: pick indicator translated", not cjk.search(win.pc_pick_label.text()))
     for page in ("lab", "pc", "board", "periph", "sessions", "settings"):
@@ -616,7 +623,7 @@ try:
     check("v11: health uses icons, no text marks", len(labels) == 3 and not any(m in texts for m in ("✓", "✕", ">!<")))
     hd.close()
     check("v11: reduced-motion setting present", hasattr(win, "reduced_motion"))
-    check("version: 0.12.8", importlib.import_module(pkg).__version__ == "0.12.8")
+    check("version: 0.12.9", importlib.import_module(pkg).__version__ == "0.12.9")
     mo.set_reduced(True)
 except Exception:
     results.append("ERROR  " + traceback.format_exc())

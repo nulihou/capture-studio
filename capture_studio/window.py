@@ -43,6 +43,7 @@ QLabel#cardTitle { font-size: 14px; font-weight: 600; color: #1D1D1F; background
 QLabel#subTitle { font-size: 12px; font-weight: 600; color: #3A3A3C; background: transparent; }
 QLabel#kpi { font-size: 20px; font-weight: 600; color: #1D1D1F; background: transparent; letter-spacing: -0.3px; }
 QLabel#field { font-size: 12px; color: #6E6E73; background: transparent; }
+QLabel#value { font-size: 12px; font-weight: 500; color: #1D1D1F; background: transparent; }
 QLabel#note, QLabel#status { color: #6E6E73; background: transparent; }
 QLabel#log { color: #86868B; font-size: 12px; background: transparent; padding: 0 4px; }
 QLabel#fact { font-size: 14px; font-weight: 600; color: #1D1D1F; background: transparent; }
@@ -553,13 +554,53 @@ def _lift(widget: QWidget, blur: int = 28, dy: int = 4, alpha: int = 18) -> QWid
     return widget
 
 
+def _fpga_state_text(state: str) -> str:
+    mapped = {
+        "operating": "运行中",
+        "unknown": "未知",
+        "power up": "上电",
+        "powerup": "上电",
+        "programming": "写入中",
+    }.get(state.strip().lower(), "")
+    return tr(mapped) if mapped else state.strip()
+
+
+def _fpga_summary(app: str, state: str) -> str:
+    word = _fpga_state_text(state) if state else ""
+    return " · ".join(part for part in (app, word) if part)
+
+
+class WrapLabel(QLabel):
+    """Word-wrapped label whose height follows the text, even in a narrow column."""
+
+    def __init__(self, text: str = "", name: str = "meta") -> None:
+        super().__init__(text)
+        self.setObjectName(name)
+        self.setWordWrap(True)
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
+
+    def hasHeightForWidth(self) -> bool:
+        return True
+
+    def heightForWidth(self, width: int) -> int:
+        return self.fontMetrics().boundingRect(0, 0, max(1, width), 2000, Qt.TextFlag.TextWordWrap, self.text()).height() + 2
+
+    def sizeHint(self) -> QSize:
+        width = self.width() if self.width() > 40 else 176
+        return QSize(width, self.heightForWidth(width))
+
+    def minimumSizeHint(self) -> QSize:
+        return QSize(40, self.heightForWidth(176))
+
+
 class ElideLabel(QLabel):
     """Single-line label that ends with … instead of overflowing its column."""
 
-    def __init__(self, text: str = "", name: str = "tileValue") -> None:
+    def __init__(self, text: str = "", name: str = "tileValue", mode: Qt.TextElideMode = Qt.TextElideMode.ElideRight) -> None:
         super().__init__()
         self.setObjectName(name)
         self._full = ""
+        self._mode = mode
         self.setMinimumWidth(0)
         self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         self.set_full(text)
@@ -576,7 +617,7 @@ class ElideLabel(QLabel):
 
     def _elide(self) -> None:
         width = max(10, self.width())
-        super().setText(self.fontMetrics().elidedText(self._full, Qt.TextElideMode.ElideRight, width))
+        super().setText(self.fontMetrics().elidedText(self._full, self._mode, width))
 
 
 BADGE = {
@@ -1077,6 +1118,7 @@ class StudioWindow(V7Mixin, QWidget):
         nav.setObjectName("nav")
         nav.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         nav.setFixedWidth(224)
+        self.nav = nav
         layout = QVBoxLayout(nav)
         layout.setContentsMargins(14, 26, 14, 20)
         layout.setSpacing(2)
@@ -1110,6 +1152,7 @@ class StudioWindow(V7Mixin, QWidget):
             self.page_buttons[key] = button
             layout.addWidget(button)
         self.page_buttons["lab"].setChecked(True)
+        layout.addWidget(self._fpga_nav())
         layout.addStretch(1)
         self._v7_nav_extras(layout)
         layout.addWidget(_label("语言", "section"))
@@ -1276,7 +1319,12 @@ class StudioWindow(V7Mixin, QWidget):
         column.addLayout(row)
         self.custom_time = QWidget()
         self.custom_time.setObjectName("side")
-        clock = QHBoxLayout(self.custom_time)
+        custom_box = QVBoxLayout(self.custom_time)
+        custom_box.setContentsMargins(0, 0, 0, 0)
+        custom_box.setSpacing(6)
+        clock_row = QWidget()
+        clock_row.setObjectName("side")
+        clock = QHBoxLayout(clock_row)
         clock.setContentsMargins(0, 0, 0, 0)
         clock.setSpacing(8)
         self.custom_hours = _clock_spin(2)
@@ -1292,8 +1340,10 @@ class StudioWindow(V7Mixin, QWidget):
             clock.addWidget(spin)
             clock.addWidget(_label(caption, "meta"))
         clock.addStretch(1)
-        hint = _label("10 秒到 2 小时，到点自动停止", "meta")
-        clock.addWidget(hint)
+        custom_box.addWidget(clock_row)
+        self.duration_hint = _label("10 秒到 2 小时，到点自动停止", "meta")
+        self.duration_hint.setWordWrap(True)
+        custom_box.addWidget(self.duration_hint)
         self.custom_time.setVisible(False)
         column.addWidget(self.custom_time)
         layout.addWidget(self.duration_bar)
@@ -1474,7 +1524,7 @@ class StudioWindow(V7Mixin, QWidget):
     # ---- v6: data card (real paths, disk space, recent sessions) -----------------------
     def _data_card(self) -> QFrame:
         card, layout = self._card("数据")
-        path = ElideLabel("", "meta")
+        path = ElideLabel("", "meta", Qt.TextElideMode.ElideMiddle)
         free = _label("", "meta")
         layout.addWidget(path)
         disk = QProgressBar()
@@ -1708,11 +1758,8 @@ class StudioWindow(V7Mixin, QWidget):
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(12)
         card, layout = self._board_info_card()  # one card: model, link, info, live status, actions
-        self.fpga_button = self._action("加载 FPGA", self.load_fpga, needs="board_idle")
-        self.fpga_button.setVisible(False)
         self.board_live_buttons = (self._live_button(self._action("实时", self.toggle_live, needs="board")),
-                                   self._action("预览", lambda: STUDIO.snap(self.payload(), "board"), needs="board"),
-                                   self.fpga_button)
+                                   self._action("预览", lambda: STUDIO.snap(self.payload(), "board"), needs="board"))
         layout.addLayout(self._buttons(*self.board_live_buttons))
         outer.addWidget(card)
         outer.addWidget(self._data_card(), 1)
@@ -1720,6 +1767,33 @@ class StudioWindow(V7Mixin, QWidget):
             self._action("开始采集", lambda: self.start_capture("board"), True, needs="board_idle"),
             self._action("停止并取回", lambda: STUDIO.stop_record(), needs="recording"))
         return page
+
+    def _fpga_nav(self) -> QWidget:
+        """FPGA block in the left nav. A column beside the preview would shrink the picture."""
+        box = QWidget()
+        box.setObjectName("side")
+        box.setVisible(False)
+        self.fpga_card = box
+        layout = QVBoxLayout(box)
+        layout.setContentsMargins(0, 14, 0, 0)
+        layout.setSpacing(6)
+        layout.addWidget(_label("FPGA 编译文件", "section"))
+        panel = QFrame()
+        panel.setObjectName("subtle")
+        inner = QVBoxLayout(panel)
+        inner.setContentsMargins(10, 8, 10, 8)
+        inner.setSpacing(6)
+        self.fpga_current = WrapLabel(tr("未加载应用"), "subTitle")
+        self.fpga_state_label = _label("", "meta")
+        self.fpga_state_label.hide()
+        self.fpga_files = WrapLabel("shell.json · .xclbin · .dtbo", "meta")
+        inner.addWidget(self.fpga_current)
+        inner.addWidget(self.fpga_state_label)
+        inner.addWidget(self.fpga_files)
+        self.fpga_button = self._action("加载 FPGA", self.load_fpga, True, needs="board_idle")
+        inner.addWidget(self.fpga_button)
+        layout.addWidget(panel)
+        return box
 
     def load_fpga(self) -> None:
         folder = QFileDialog.getExistingDirectory(self, tr("选择 FPGA 应用目录"))
@@ -1778,7 +1852,7 @@ class StudioWindow(V7Mixin, QWidget):
         grid.setVerticalSpacing(2)
         self.info_cells: dict[str, tuple[QLabel, ElideLabel]] = {}
         for index, (title, key) in enumerate(self.INFO_ROWS):
-            name, value = _label(title, "meta"), ElideLabel("", "field")
+            name, value = _label(title, "meta"), ElideLabel("", "value")
             row, col = divmod(index, 2)
             grid.addWidget(name, row, col * 2)
             grid.addWidget(value, row, col * 2 + 1)
@@ -1800,7 +1874,7 @@ class StudioWindow(V7Mixin, QWidget):
             top.addWidget(_label(title, "meta"))
             top.addStretch(1)
             value = QLabel("")
-            value.setObjectName("field")
+            value.setObjectName("value")
             top.addWidget(value)
             box.addLayout(top)
             bar = QProgressBar()
@@ -1939,7 +2013,7 @@ class StudioWindow(V7Mixin, QWidget):
         disk = (f"{_size(info.get('disk_free'))} / {_size(info.get('disk_total'))} " + tr("可用")) if info.get("disk_total") else ""
         fpga = ""
         if "fpga" in (info.get("capabilities") or []):
-            fpga = " · ".join(str(part) for part in (info.get("fpga_state"), info.get("fpga_app")) if part)
+            fpga = _fpga_summary(str(info.get("fpga_app") or ""), str(info.get("fpga_state") or ""))
         uptime = info.get("uptime_s")
         values = {
             "os": " · ".join(str(x) for x in (info.get("os"), info.get("l4t")) if x),
@@ -1985,8 +2059,24 @@ class StudioWindow(V7Mixin, QWidget):
                 value.setText(text)
         self.status_wait.setVisible(bool(info) and not rows)
         self.board_status_rows = sorted(rows)  # for tests
-        if hasattr(self, "fpga_button"):
-            self.fpga_button.setVisible("xmutil" in (info.get("capabilities") or []))
+        if hasattr(self, "fpga_card"):
+            show = self.current_page == "board" and "xmutil" in (info.get("capabilities") or [])
+            self.fpga_card.setVisible(show)
+            app = str(info.get("fpga_app") or "")
+            state_text = _fpga_state_text(str(info.get("fpga_state") or ""))
+            if app:
+                current = app
+            elif state_text:
+                current, state_text = state_text, ""
+            else:
+                current = tr("未加载应用")
+            if self.fpga_current.text() != current:
+                self.fpga_current.setText(current)
+            self.fpga_state_label.setVisible(bool(app and state_text))
+            if state_text and self.fpga_state_label.text() != state_text:
+                self.fpga_state_label.setText(state_text)
+            self.fpga_current.setMinimumHeight(self.fpga_current.heightForWidth(160))
+            self.fpga_files.setMinimumHeight(self.fpga_files.heightForWidth(160))
 
     def _sessions_page(self) -> QWidget:
         page = QWidget()

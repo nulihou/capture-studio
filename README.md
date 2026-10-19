@@ -6,7 +6,7 @@ Windows 桌面程序（PySide6）：本机 USB 摄像头采集，以及通过 SS
 
 ## 克隆
 
-当前版本 **v0.12.8**。Windows 便携包在 [GitHub Release](https://github.com/nulihou/capture-studio/releases/tag/v0.12.8)。
+当前版本 **v0.12.9**。Windows 便携包在 [GitHub Release](https://github.com/nulihou/capture-studio/releases/tag/v0.12.9)。
 
 ```bash
 git clone https://github.com/nulihou/capture-studio.git
@@ -75,7 +75,7 @@ python -m capture_studio
 3. 新板第一次可填登录密码以安装公钥（可选「记住密码」→ Windows 凭据管理器）；之后用密钥。
 4. 保存并连接；软件在板上部署/启动采集服务。
 5. 在「摄像头测试」或「开发板采集」页用 **大屏** 看画面。时长可选 60 秒短检、10 分钟关口、自定义（10 秒到 2 小时）或手动停止。
-6. 加载 FPGA：在「开发板」页点 **加载 FPGA**，选择编好的应用目录（含 `shell.json`、`.xclbin`、`.dtbo`，也可以是只含这一份应用的 zip）。软件把它装到 `/lib/firmware/xilinx/<应用名>`，执行 `xmutil loadapp`，目录里若有 `vart.conf` 会写到 `/etc/vart.conf`。
+6. 加载 FPGA：连上带 xmutil 的开发板后，左侧导航里、工作区按钮下面有 **FPGA 编译文件**。这里显示当前应用。点 **加载 FPGA**，选择编好的应用目录（含 `shell.json`、`.xclbin`、`.dtbo`，也可以是只含这一份应用的 zip）。软件把它装到 `/lib/firmware/xilinx/<应用名>`，执行 `xmutil loadapp`，目录里若有 `vart.conf` 会写到 `/etc/vart.conf`。
 7. **设置**页可以查看 GitHub Releases 上的新版本。
 
 ## 测试
