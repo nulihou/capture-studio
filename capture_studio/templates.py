@@ -8,7 +8,8 @@ from pathlib import Path
 from typing import Any
 
 FIELDS = ("width", "height", "fps", "format", "codec", "bitrate", "preset", "exposure_mode", "exposure_absolute",
-          "power", "wb", "focus", "duration", "output", "lens", "lighting", "distance")
+          "power", "wb", "focus", "duration", "custom_hours", "custom_minutes", "custom_seconds",
+          "output", "lens", "lighting", "distance")
 
 
 def _clean(name: str) -> str:

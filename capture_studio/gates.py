@@ -194,7 +194,9 @@ def preflight_native(options) -> dict:
         rate = payload.get("whole_window_hz")
         if isinstance(rate, (int, float)):
             stats["source_fps"] = round(float(rate), 3)
-        guard_long_capture(options.planned_seconds, stats)
+        # 650 seconds is the named 10-minute gate, including warmup. Custom times are not cancelled here.
+        if options.planned_seconds == 650:
+            guard_long_capture(options.planned_seconds, stats)
         return stats
 
 

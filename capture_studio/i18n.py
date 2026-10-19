@@ -163,6 +163,10 @@ UI = {
     "会话": "Sessions",
     "设置": "Settings",
     "时长": "Duration",
+    "时": "h",
+    "分": "m",
+    "秒": "s",
+    "10 秒到 2 小时，到点自动停止": "10 s to 2 h, then stop",
     "未发现摄像头": "No camera found",
     "识别并预览": "Detect & Preview",
     "画面": "Picture",
@@ -225,7 +229,8 @@ UI = {
 
 # ---- option labels (combo items / presets): value stays Chinese ------------------
 OPTIONS = {
-    "60 秒短检": "60 s quick check", "10 分钟关口": "10 min gate", "手动停止": "Stop manually",
+    "60 秒短检": "60 s quick check", "10 分钟关口": "10 min gate", "自定义": "Custom",
+    "手动停止": "Stop manually",
     "看清画面": "Clarity", "看流畅": "Smoothness", "自己设置": "Custom",
     "自动": "Auto", "手动": "Manual", "快门优先": "Shutter priority",
     "不改": "Keep", "关闭": "Off",
@@ -233,6 +238,9 @@ OPTIONS = {
 
 # ---- runtime messages from the backend (display-only translation) ---------------
 MESSAGES = {
+    "时长请选择短检、10 分钟关口、自定义或手动停止": "Choose a short check, the 10 min gate, a custom time, or manual stop",
+    "自定义时长需在 10 秒到 2 小时之间": "Custom time must be from 10 seconds to 2 hours",
+    "自定义时长需要填写数字": "Custom time needs numbers",
     "无法读取开发板信息": "Could not read board info", "OpenSSH 不可用": "OpenSSH unavailable",
     "有操作正在进行": "Another operation is in progress",
     "未找到开发板": "Board not found",

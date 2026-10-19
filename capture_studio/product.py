@@ -32,13 +32,13 @@ from .core import (CaptureOptions, ProcessRecorder, SESSION_ID, audit_session,
 from .camera_pick import REASONS, camera_id, pick_camera
 from .desktop import BoardClient, app_root, list_dshow_cameras
 from .desktop_ui import EXPOSURE_PRESETS
+from .duration import planned_seconds
 from .gates import preflight_dshow
 from .portable_connect import FRESH_BOARD, connection_settings
 from .automation import download_with_retry, require_recorded_session, session_result
 
 WEB = Path(__file__).resolve().parent / "web"
 EXPOSURE_LABELS = {"自动": 0, "手动": 1, "快门优先": 2}
-DURATIONS = {"60 秒短检": 60, "10 分钟关口": 650, "手动停止": None}
 
 
 def _free_port() -> int:
@@ -104,6 +104,7 @@ class Studio:
         defaults: dict[str, Any] = {
             "output": "captures", "ffmpeg": "", "ffprobe": "",
             "operator": "", "notes": "", "duration": "60 秒短检",
+            "custom_hours": "0", "custom_minutes": "5", "custom_seconds": "0",
             "lens": "", "lighting": "", "distance": "",
             "width": 640, "height": 480, "fps": 30, "format": "mjpeg",
             "pc_width": "", "pc_height": "", "pc_fps": "", "pc_format": "",
@@ -613,7 +614,7 @@ class Studio:
             raise RuntimeError("请先在列表里选择一只电脑上的摄像头。")
         source_format = str(settings.get("format") or "mjpeg")
         info = next((item for item in self.cameras if item.get("device") == device), {})
-        duration = DURATIONS.get(str(settings.get("duration") or ""), 60)
+        duration = planned_seconds(settings)
         options = CaptureOptions(
             device=device,
             width=int(settings.get("width") or 640),

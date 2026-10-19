@@ -1,7 +1,6 @@
 """Pre-capture health check and recording size estimate (v7).  Pure functions, no I/O."""
 from __future__ import annotations
 
-import re
 from typing import Any
 
 # v9: no guessed compression coefficients.  Sizes come from format math where it is exact (uncompressed
@@ -9,14 +8,13 @@ from typing import Any
 # format/codec actually wrote; with no history the figure is an explicit upper bound (uncompressed size).
 YUYV_BYTES_PER_PIXEL = 2.0
 BASIS_TEXT = {"exact": "按格式计算", "bitrate": "按目标码率", "measured": "按最近会话实测", "upper": "上限（按未压缩计）"}
-DURATIONS = {"60 秒短检": 60, "10 分钟关口": 650, "手动停止": 600}  # 650 s includes warmup; manual budget is advisory
 
 
-def seconds_for(duration: str) -> int:
-    if duration in DURATIONS:
-        return DURATIONS[duration]
-    match = re.match(r"^\s*(\d+)", str(duration))
-    return int(match.group(1)) if match else 60
+def seconds_for(settings: dict[str, Any] | str) -> int:
+    from .duration import estimate_seconds
+    if isinstance(settings, str):
+        settings = {"duration": settings}
+    return estimate_seconds(settings)
 
 
 def stored_codec(fmt: str, codec: str, mode: str) -> str:
@@ -81,7 +79,7 @@ def estimate(settings: dict[str, Any], mode: str = "pc", history: list[dict[str,
     fmt = str(settings.get("format") or "mjpeg")
     codec = stored_codec(fmt, str(settings.get("codec") or "copy"), mode)
     rate, basis, samples = rate_and_basis(width, height, fps, fmt, codec, num("bitrate", 0), history)
-    seconds = seconds_for(str(settings.get("duration") or ""))
+    seconds = seconds_for(settings)
     return {"bytes_per_s": rate, "mbps": rate * 8 / 1e6, "seconds": seconds, "bytes": rate * seconds,
             "basis": basis, "samples": samples, "label": BASIS_TEXT[basis]}
 

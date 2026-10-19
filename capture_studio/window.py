@@ -14,7 +14,7 @@ from PySide6.QtGui import QColor, QFont, QIcon, QImage, QPainter, QPainterPath, 
 from PySide6.QtWidgets import (
     QApplication, QButtonGroup, QComboBox, QDialog, QFileDialog, QFrame, QGraphicsDropShadowEffect, QGridLayout,
     QGraphicsPixmapItem, QGraphicsScene, QGraphicsView, QHBoxLayout, QLabel,
-    QCheckBox, QLineEdit, QListWidget, QListWidgetItem, QProgressBar, QPushButton, QScrollArea,
+    QCheckBox, QLineEdit, QListWidget, QListWidgetItem, QProgressBar, QPushButton, QScrollArea, QSpinBox,
     QSizePolicy, QStackedWidget, QTextBrowser, QVBoxLayout, QWidget,
 )
 
@@ -63,7 +63,7 @@ QProgressBar#meter { background: #E8E8ED; border: none; border-radius: 3px; max-
 QProgressBar#meter::chunk { background: #0071E3; border-radius: 3px; }
 QLabel#empty { font-size: 12px; color: #AEAEB2; background: transparent; }
 QLabel#section { font-size: 11px; font-weight: 600; color: #86868B; background: transparent; padding-left: 10px; letter-spacing: 0.2px; }
-QLineEdit, QComboBox {
+QLineEdit, QComboBox, QSpinBox {
     background: #F5F5F7;
     border: 1px solid #E5E5EA;
     border-radius: 8px;
@@ -72,9 +72,9 @@ QLineEdit, QComboBox {
     selection-background-color: #0071E3;
     selection-color: #FFFFFF;
 }
-QLineEdit:hover, QComboBox:hover { background: #F0F0F3; border-color: #D2D2D7; }
-QLineEdit:focus, QComboBox:focus { background: #FFFFFF; border: 1px solid #0071E3; }
-QLineEdit:disabled, QComboBox:disabled { color: #AEAEB2; background: #F5F5F7; }
+QLineEdit:hover, QComboBox:hover, QSpinBox:hover { background: #F0F0F3; border-color: #D2D2D7; }
+QLineEdit:focus, QComboBox:focus, QSpinBox:focus { background: #FFFFFF; border: 1px solid #0071E3; }
+QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled { color: #AEAEB2; background: #F5F5F7; }
 QComboBox::drop-down { border: none; width: 30px; }
 QComboBox::down-arrow { image: url(__CHEVRON__); width: 12px; height: 12px; }
 QComboBox QAbstractItemView {
@@ -638,6 +638,14 @@ def _label(text: str, name: str = "field") -> QLabel:
 
 def _edit(text: str = "") -> QLineEdit:
     widget = QLineEdit(text)
+    return widget
+
+
+def _clock_spin(maximum: int) -> QSpinBox:
+    widget = QSpinBox()
+    widget.setRange(0, maximum)
+    widget.setFixedWidth(72)
+    widget.setAlignment(Qt.AlignmentFlag.AlignRight)
     return widget
 
 
@@ -1253,13 +1261,40 @@ class StudioWindow(V7Mixin, QWidget):
         layout.setSpacing(10)
         self.duration_bar = QWidget()
         self.duration_bar.setObjectName("side")
-        row = QHBoxLayout(self.duration_bar)
+        column = QVBoxLayout(self.duration_bar)
+        column.setContentsMargins(0, 0, 0, 0)
+        column.setSpacing(8)
+        row = QHBoxLayout()
         row.setContentsMargins(0, 0, 0, 0)
         row.setSpacing(12)
         row.addWidget(_label("时长", "cardTitle"))
-        row.addWidget(self._field("duration", _combo(["60 秒短检", "10 分钟关口", "手动停止"])), 1)
+        duration = self._field("duration", _combo(["60 秒短检", "10 分钟关口", "自定义", "手动停止"]))
+        row.addWidget(duration, 1)
         row.addWidget(self._v7_template_button())
         self.template_button.setFixedHeight(self.fields["duration"].sizeHint().height())  # footer height unchanged from v6
+        column.addLayout(row)
+        self.custom_time = QWidget()
+        self.custom_time.setObjectName("side")
+        clock = QHBoxLayout(self.custom_time)
+        clock.setContentsMargins(0, 0, 0, 0)
+        clock.setSpacing(8)
+        self.custom_hours = _clock_spin(2)
+        self.custom_minutes = _clock_spin(59)
+        self.custom_seconds = _clock_spin(59)
+        self.custom_minutes.setValue(5)
+        self._syncing_duration = False
+        duration.currentIndexChanged.connect(self._duration_edited)
+        for spin, caption in (
+            (self.custom_hours, "时"), (self.custom_minutes, "分"), (self.custom_seconds, "秒"),
+        ):
+            spin.valueChanged.connect(self._duration_edited)
+            clock.addWidget(spin)
+            clock.addWidget(_label(caption, "meta"))
+        clock.addStretch(1)
+        hint = _label("10 秒到 2 小时，到点自动停止", "meta")
+        clock.addWidget(hint)
+        self.custom_time.setVisible(False)
+        column.addWidget(self.custom_time)
         layout.addWidget(self.duration_bar)
         self.footer_stack = QStackedWidget()
         self.footer_stack.setObjectName("side")
@@ -2270,6 +2305,22 @@ class StudioWindow(V7Mixin, QWidget):
             self._toast = Toast(self)
         self._toast.show_message(text)
 
+    def _show_custom_duration(self) -> None:
+        custom = _combo_value(self.fields["duration"]) == "自定义"
+        if self.custom_time.isVisible() != custom:
+            self.custom_time.setVisible(custom)
+
+    def _duration_edited(self, *_args: object) -> None:
+        self._show_custom_duration()
+        if self._syncing_duration:
+            return
+        STUDIO.update_settings({
+            "duration": _combo_value(self.fields["duration"]),
+            "custom_hours": str(self.custom_hours.value()),
+            "custom_minutes": str(self.custom_minutes.value()),
+            "custom_seconds": str(self.custom_seconds.value()),
+        })
+
     def payload(self) -> dict[str, Any]:
         data: dict[str, Any] = {}
         for key, widget in self.fields.items():
@@ -2277,6 +2328,9 @@ class StudioWindow(V7Mixin, QWidget):
                 data[key] = _combo_value(widget)
             elif isinstance(widget, QLineEdit):
                 data[key] = widget.text().strip()
+        data["custom_hours"] = str(self.custom_hours.value())
+        data["custom_minutes"] = str(self.custom_minutes.value())
+        data["custom_seconds"] = str(self.custom_seconds.value())
         device = _combo_value(self.board_device).strip()
         if device:
             data["device"] = device
@@ -2329,6 +2383,24 @@ class StudioWindow(V7Mixin, QWidget):
         for key, widget in self.fields.items():
             if key in settings:
                 self._set_widget(widget, settings.get(key))
+        self._syncing_duration = True
+        try:
+            self._show_custom_duration()
+            for spin, key in (
+                (self.custom_hours, "custom_hours"),
+                (self.custom_minutes, "custom_minutes"),
+                (self.custom_seconds, "custom_seconds"),
+            ):
+                if key not in settings or spin is QApplication.focusWidget():
+                    continue
+                try:
+                    number = int(settings.get(key) or 0)
+                except (TypeError, ValueError):
+                    continue
+                if spin.value() != number:
+                    spin.setValue(number)
+        finally:
+            self._syncing_duration = False
         preset = str(settings.get("preset") or "")
         for name, button in self.presets.items():
             button.setChecked(name == preset)

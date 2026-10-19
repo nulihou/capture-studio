@@ -2,15 +2,11 @@
 
 # Capture Studio
 
-USB camera capture and board debug for **KV260, Jetson, Raspberry Pi, RK3588**, and other SSH-reachable Linux boards - plus local USB cameras on Windows.
-
-Windows app (PySide6) for local USB cameras and SSH boards (KV260, Jetson, Raspberry Pi, RK3588, …). Chinese / English, light / dark. Screenshots at 125% scaling with no camera attached.
+Windows app (PySide6) for local USB cameras and SSH boards: **KV260, Jetson, Raspberry Pi, RK3588**, and other Linux boards you can reach over SSH. Chinese / English, light / dark.
 
 ## Clone
 
-Current version: **v0.12.6**, available from [GitHub Releases](https://github.com/nulihou/capture-studio/releases/tag/v0.12.6). This release completes the preview-stop request before closing the SSH tunnel and immediately refreshes source-specific cards and actions when navigating between pages.
-
-Validation: 227 software tests and 229 Qt UI checks passed. The final Windows EXE was exercised on a KV260 / HHW001 through preview, a 60-second recording, automatic stop, download, audit, and exit during live preview (exit code 0). This does not establish actual 30 fps, field image quality, or long-term hardware stability.
+Current version: **v0.12.6**. The Windows portable build is on [GitHub Releases](https://github.com/nulihou/capture-studio/releases/tag/v0.12.6).
 
 ```bash
 git clone https://github.com/nulihou/capture-studio.git
@@ -19,11 +15,11 @@ pip install -r capture_studio/requirements.txt
 python -m capture_studio
 ```
 
-Or double-click `capture_studio\Start-CaptureStudio.cmd` (legacy names `Start-KV260-CaptureStudio.cmd` / `Start-BoardCaptureStudio.cmd` only forward here).
+Or double-click `capture_studio\Start-CaptureStudio.cmd`. `Start-KV260-CaptureStudio.cmd` and `Start-BoardCaptureStudio.cmd` open that script.
 
-Run: `python -m capture_studio`
+## Interface
 
-## Interface (screenshots from v0.12.5)
+Screenshots are from v0.12.5, at 125% scaling, with no camera attached.
 
 Sidebar: Test, PC, Board, Peripherals, Sessions, Settings.
 
@@ -39,13 +35,14 @@ Shortcuts: Space record, L live preview, P one frame, F **Large view**, H health
 
 Discovery (also explained in the connection wizard):
 
-- **/24** around each real adapter (up to 3; never sweeps a wider mask as a whole)
-- System **neighbour table**, including **169.254** link-local (direct cable); **no** /16 link-local sweep
-- Common **`.local`** names; optional `zeroconf` for `_ssh._tcp`
-- **TCP 22** SSH banner only - no login
-- Vendor tags; boards ranked first; guidance when the NIC has only 169.254 or no gateway (**text only**, no OS network changes); **Test this IP** for a single address
+- The **/24** of each real adapter, up to 3 adapters
+- The system neighbour table, including **169.254** link-local addresses from a direct cable
+- Common **`.local`** names; `zeroconf` browses `_ssh._tcp` when it is installed
+- An **SSH-** banner on **TCP 22**
+- Vendor tags from the MAC OUI and hostname, with boards listed first
+- Written steps when the NIC has only 169.254 or no gateway; **Test this IP** checks one address you type
 
-Auto-select: one board → select it; several → pick manually; a single non-board SSH host → select with a warning. Multi-device networks are never silently forced to an Xilinx address.
+One discovered board is selected. Several boards are listed for you to choose. A single SSH computer with no board asks you to check the address.
 
 ### Peripherals (dark)
 
@@ -66,7 +63,7 @@ pip install -r capture_studio/requirements.txt
 python -m capture_studio
 ```
 
-The **Capture Studio SSH key** is stored as `~/.ssh/id_ed25519_kv260` for compatibility with boards that already trust that key. **Settings → Check for updates** uses GitHub Releases (proxy failure retries direct; never self-replaces files).
+The Capture Studio SSH key is stored as `~/.ssh/id_ed25519_kv260`, so boards that already trust that key keep working. Recording length can be a 60-second check, a 10-minute gate, a custom time from 10 seconds to 2 hours, or manual stop. **Settings** can look up a newer build on GitHub Releases.
 
 ## Tests
 
