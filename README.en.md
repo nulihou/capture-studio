@@ -6,7 +6,7 @@ Windows app (PySide6) for local USB cameras and SSH boards: **KV260, Jetson, Ras
 
 ## Clone
 
-Current version: **v0.12.6**. The Windows portable build is on [GitHub Releases](https://github.com/nulihou/capture-studio/releases/tag/v0.12.6).
+Current version: **v0.12.7**. The Windows portable build is on [GitHub Releases](https://github.com/nulihou/capture-studio/releases/tag/v0.12.7).
 
 ```bash
 git clone https://github.com/nulihou/capture-studio.git

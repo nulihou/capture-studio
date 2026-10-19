@@ -6,7 +6,7 @@ Windows 桌面程序（PySide6）：本机 USB 摄像头采集，以及通过 SS
 
 ## 克隆
 
-当前版本 **v0.12.6**。Windows 便携包在 [GitHub Release](https://github.com/nulihou/capture-studio/releases/tag/v0.12.6)。
+当前版本 **v0.12.7**。Windows 便携包在 [GitHub Release](https://github.com/nulihou/capture-studio/releases/tag/v0.12.7)。
 
 ```bash
 git clone https://github.com/nulihou/capture-studio.git
