@@ -15,13 +15,14 @@ from PySide6.QtWidgets import (
     QApplication, QButtonGroup, QComboBox, QDialog, QFileDialog, QFrame, QGraphicsDropShadowEffect, QGridLayout,
     QGraphicsPixmapItem, QGraphicsScene, QGraphicsView, QHBoxLayout, QLabel,
     QCheckBox, QLineEdit, QListWidget, QListWidgetItem, QProgressBar, QPushButton, QScrollArea, QSpinBox,
-    QSizePolicy, QStackedWidget, QTextBrowser, QVBoxLayout, QWidget,
+    QSizePolicy, QStackedWidget, QTextBrowser, QVBoxLayout, QWidget, QDialogButtonBox,
 )
 
 from . import i18n
 from .i18n import tr, tr_msg, tr_opt
 from .camera_lab import TUNING, support_for
 from .camera_modes import PRESETS, mode_key, mode_label, mode_prefix, mode_view, saved_mode, sort_modes
+from . import fpga_deploy
 from .product import STUDIO
 from . import icons, motion, theme, updates
 from . import __version__
@@ -1707,8 +1708,11 @@ class StudioWindow(V7Mixin, QWidget):
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(12)
         card, layout = self._board_info_card()  # one card: model, link, info, live status, actions
+        self.fpga_button = self._action("加载 FPGA", self.load_fpga, needs="board_idle")
+        self.fpga_button.setVisible(False)
         self.board_live_buttons = (self._live_button(self._action("实时", self.toggle_live, needs="board")),
-                                   self._action("预览", lambda: STUDIO.snap(self.payload(), "board"), needs="board"))
+                                   self._action("预览", lambda: STUDIO.snap(self.payload(), "board"), needs="board"),
+                                   self.fpga_button)
         layout.addLayout(self._buttons(*self.board_live_buttons))
         outer.addWidget(card)
         outer.addWidget(self._data_card(), 1)
@@ -1716,6 +1720,37 @@ class StudioWindow(V7Mixin, QWidget):
             self._action("开始采集", lambda: self.start_capture("board"), True, needs="board_idle"),
             self._action("停止并取回", lambda: STUDIO.stop_record(), needs="recording"))
         return page
+
+    def load_fpga(self) -> None:
+        folder = QFileDialog.getExistingDirectory(self, tr("选择 FPGA 应用目录"))
+        if not folder:
+            return
+        try:
+            prepared = fpga_deploy.prepare(Path(folder))
+            name = prepared.name
+            prepared.cleanup()
+        except ValueError as exc:
+            self.toast(str(exc))
+            return
+        dialog = QDialog(self)
+        dialog.setWindowTitle(tr("加载 FPGA"))
+        layout = QVBoxLayout(dialog)
+        layout.setContentsMargins(22, 18, 22, 16)
+        layout.addWidget(QLabel(tr_msg(f"安装 {name} 到开发板并加载")))
+        password = QLineEdit()
+        password.setEchoMode(QLineEdit.EchoMode.Password)
+        password.setPlaceholderText(tr("sudo 不需要密码就留空"))
+        layout.addWidget(password)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        ok = buttons.button(QDialogButtonBox.StandardButton.Ok)
+        if ok is not None:
+            ok.setText(tr("加载"))
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        STUDIO.deploy_fpga(folder, password.text())
 
     # ---- generic board info + live status (any SSH Linux board) -------------------
     INFO_ROWS = (("系统", "os"), ("内核", "kernel"), ("处理器", "cpu"), ("内存", "mem"),
@@ -1950,6 +1985,8 @@ class StudioWindow(V7Mixin, QWidget):
                 value.setText(text)
         self.status_wait.setVisible(bool(info) and not rows)
         self.board_status_rows = sorted(rows)  # for tests
+        if hasattr(self, "fpga_button"):
+            self.fpga_button.setVisible("xmutil" in (info.get("capabilities") or []))
 
     def _sessions_page(self) -> QWidget:
         page = QWidget()

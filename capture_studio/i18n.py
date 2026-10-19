@@ -592,3 +592,40 @@ _V124 = {
 }
 UI.update({k: v for k, v in _V124.items() if k not in UI})
 MESSAGES.update({k: v for k, v in _V124.items() if k not in MESSAGES})
+
+_V127 = {
+    "加载 FPGA": "Load FPGA",
+    "选择 FPGA 应用目录": "Choose the FPGA app folder",
+    "sudo 不需要密码就留空": "Leave blank when sudo does not need a password",
+    "加载": "Load",
+    "正在加载 FPGA": "Loading FPGA…",
+    "FPGA 没有加载": "FPGA was not loaded",
+    "在加载窗口里填写这块板的 sudo 密码，再加载一次。": "Enter this board's sudo password in the load window, then load again.",
+    "密码不对。重新点“加载 FPGA”，填写板上的 sudo 密码。": "Wrong password. Click Load FPGA again and enter the board's sudo password.",
+    "这块板没有 xmutil，不能加载 FPGA 应用。": "This board has no xmutil, so an FPGA app cannot be loaded.",
+    "应用目录里需要 shell.json、一个 xclbin 和一个 dtbo。": "The app folder needs shell.json, one xclbin and one dtbo.",
+    "文件已拷到板子，xmutil 没有完成加载。点“详情”查看板端输出。": "The files were copied, and xmutil did not finish loading. Open Details for the board output.",
+    "应用没有拷到板子上。确认开发板仍连接着，再加载一次。": "The app was not copied. Check that the board is still connected, then load again.",
+    "正在录制，先停止后再加载 FPGA": "A recording is in progress. Stop it, then load the FPGA app.",
+    "先连接开发板": "Connect to the board first",
+    "应用目录里需要 shell.json、一个 .xclbin 和一个 .dtbo": "The app folder needs shell.json, one .xclbin and one .dtbo",
+    "这个目录里没有 FPGA 应用": "This folder has no FPGA app",
+    "应用名只能用字母、数字、点、下划线和短横线": "The app name can only use letters, digits, dots, underscores and hyphens",
+    "选择 FPGA 应用目录或 zip": "Choose an FPGA app folder or zip",
+    "压缩包路径不安全": "The zip contains an unsafe path",
+    "FPGA 应用太大": "The FPGA app is too large",
+    "shell.json 无法读取": "shell.json could not be read",
+    "sudo 密码里不能换行": "The sudo password cannot contain a line break",
+    "这块板没有 xmutil": "This board has no xmutil",
+    "sudo 需要密码": "sudo needs a password",
+    "sudo 密码不对": "Wrong sudo password",
+}
+UI.update({k: v for k, v in _V127.items() if k not in UI})
+MESSAGES.update({k: v for k, v in _V127.items() if k not in MESSAGES})
+_PATTERNS[:0] = [
+    (r"^安装 (\S+) 到开发板并加载$", "Install {0} on the board and load it"),
+    (r"^已加载 (\S+)$", "Loaded {0}"),
+    (r"^上传失败：(.+)$", "Upload failed: {0}"),
+    (r"^xmutil loadapp 失败：(.+)$", "xmutil loadapp failed: {0}"),
+    (r"^加载后的应用列表里没有 (\S+)$", "{0} is not in the app list after loading"),
+]

@@ -373,6 +373,31 @@ class Studio:
         self._start_monitor(ssh_args)
         self.scan_peripherals()  # automatic on connect
 
+    def deploy_fpga(self, source: str, password: str = "") -> None:
+        """Copy a compiled Kria app to the connected board and xmutil loadapp it."""
+        with self.lock:
+            if self.recording or self.completion:
+                self._log("正在录制，先停止后再加载 FPGA")
+                return
+            ssh_args = list(self.ssh_args or [])
+            connected = self.connected
+            user = str(self.settings.get("user") or "ubuntu")
+            host = str(self.settings.get("host") or "")
+            key = Path(str(self.settings.get("key") or ""))
+        if not connected or not ssh_args:
+            self._log("先连接开发板")
+            return
+
+        def work() -> None:
+            from .fpga_deploy import deploy
+            self.stop_live(wait=True)
+            note = deploy(ssh_args, Path(source), password)
+            self._probe_board(user, host, key)
+            with self.lock:
+                self._log(note)
+
+        self._work("正在加载 FPGA", work, retryable=False)
+
     def _start_monitor(self, ssh_args: list[str], factory: Any = None) -> None:
         self._stop_monitor()
 

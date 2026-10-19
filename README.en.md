@@ -6,7 +6,7 @@ Windows app (PySide6) for local USB cameras and SSH boards: **KV260, Jetson, Ras
 
 ## Clone
 
-Current version: **v0.12.7**. The Windows portable build is on [GitHub Releases](https://github.com/nulihou/capture-studio/releases/tag/v0.12.7).
+Current version: **v0.12.8**. The Windows portable build is on [GitHub Releases](https://github.com/nulihou/capture-studio/releases/tag/v0.12.8).
 
 ```bash
 git clone https://github.com/nulihou/capture-studio.git
@@ -64,6 +64,8 @@ python -m capture_studio
 ```
 
 The Capture Studio SSH key is stored as `~/.ssh/id_ed25519_kv260`, so boards that already trust that key keep working. Recording length can be a 60-second check, a 10-minute gate, a custom time from 10 seconds to 2 hours, or manual stop. **Settings** can look up a newer build on GitHub Releases.
+
+**Load FPGA** on the Board page takes a compiled app folder (`shell.json`, one `.xclbin`, one `.dtbo`, or a zip of that folder), copies it to `/lib/firmware/xilinx/<app>`, and runs `xmutil loadapp`. A `vart.conf` in the folder is installed as `/etc/vart.conf`.
 
 ## Tests
 

@@ -31,6 +31,7 @@ BUTTON_ICONS = {
     "快捷键": "act.keyboard", "保存": "act.save", "清空": "act.clear", "连接向导": "act.wizard", "发送": "act.send", "播放": "act.play",
     "好": "act.ok", "跳过": "act.skip", "先不录": "act.skip", "填入当前": "act.fill", "读取参数": "act.params", "扫描 I2C": "act.scan",
     "查看全部外设": "act.next", "选择": "act.folder", "板端": "dev.board", "本机": "nav.pc",
+    "加载 FPGA": "dev.pci",
 }
 
 CATEGORY_ICONS = {"usb": "dev.usb", "video": "dev.video", "serial": "dev.serial", "i2c": "dev.i2c", "spi": "dev.spi",
