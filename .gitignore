@@ -14,6 +14,7 @@ capture_studio/acceptance_runs/
 
 capture_studio/studio_settings.json
 capture_studio/ui_prefs.json
+capture_studio/demo_prefs.json
 capture_studio/self_test.json
 capture_studio/capture_templates.json
 capture_studio/build_tmp_portable/

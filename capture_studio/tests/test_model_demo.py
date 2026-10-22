@@ -40,8 +40,8 @@ class PageTests(unittest.TestCase):
         self.assertIn("不是识别", badge_copy(self.page.kind)[1])
         self.assertTrue(self.page.state.result["preview_only"])
         self.assertFalse(self.page.state.image.isNull())
-        self.assertGreaterEqual(len(self.page.visible_detections()), 1)
-        self.assertEqual(self.page.zoom_detection()["class"], "drone")
+        self.assertGreaterEqual(len(self.page.visible_detections()), 3)
+        self.assertEqual(self.page.zoom_detection()["class"], "bird")
         self.page.set_min_score(0.95)
         self.assertEqual(self.page.visible_detections(), [])
         self.page.set_min_score(0.2)
@@ -89,10 +89,10 @@ class PageTests(unittest.TestCase):
 
     def test_pin_smallest_box_and_fullscreen_hides_controls(self):
         self.page.step(frame_id=6, now=3.0)
-        drone = next(row for row in self.page.visible_detections() if row["class"] == "drone")
-        x, y, w, h = drone["bbox"]
+        bird = next(row for row in self.page.visible_detections() if row["class"] == "bird")
+        x, y, w, h = bird["bbox"]
         self.page.pin_at_image(x + w / 2, y + h / 2)
-        self.assertEqual(self.page.zoom_detection()["track_id"], drone["track_id"])
+        self.assertEqual(self.page.zoom_detection()["track_id"], bird["track_id"])
         self.page.set_presentation(title="港口小目标", customer="北港", logo_pos="右上")
         self.assertEqual(self.page.state.title, "港口小目标")
         self.assertEqual(self.page.state.logo_pos, "右上")
@@ -111,6 +111,46 @@ class PageTests(unittest.TestCase):
         self.assertGreater(self.page.fps_value, 10)
         self.assertLess(self.page.fps_value, 40)
         self.assertEqual(self.page.health_caption.text(), "示意读数，不是板端")
+
+    def test_board_source_clears_demo_readout(self):
+        self.page.step(frame_id=4, now=10.0)
+        self.page.step(frame_id=5, now=10.05)
+        self.assertTrue(self.page.events)
+        self.assertNotEqual(self.page.readout_numbers()[1], "—")
+        self.page._choose_source("board")
+        self.page.step(now=20.0)
+        self.page.timer.stop()
+        self.page._stop_poller()
+        self.assertEqual(self.page.source, "board")
+        self.assertTrue(self.page.source_buttons["board"].isChecked())
+        self.assertEqual(self.page.kind, "offline")
+        self.assertEqual(self.page.events, [])
+        self.assertEqual(self.page.fps_samples, [])
+        self.assertEqual(self.page.latency_samples, [])
+        self.assertEqual(self.page.class_samples, [])
+        self.assertEqual(self.page.count_samples, [])
+        self.assertEqual(self.page.visible_detections(), [])
+        self.assertEqual(self.page.slots, {})
+        self.assertEqual(self.page.readout_numbers(), ("—", "—", "—"))
+        self.assertEqual(self.page.health_rows["temp"].text(), "—")
+        self.assertEqual(self.page.health_rows["cpu"].text(), "—")
+
+    def test_demo_theme_defaults_light_and_is_separate(self):
+        from capture_studio import model_demo, theme
+        theme.DARK_MODE = True
+        try:
+            model_demo.set_demo_dark(False)
+            self.assertFalse(model_demo.DEMO_DARK)
+            self.page.set_demo_theme(True)
+            self.assertTrue(model_demo.DEMO_DARK)
+            self.assertTrue(self.page.theme_buttons[True].isChecked())
+            self.assertTrue(theme.DARK_MODE)
+            self.page.set_demo_theme(False)
+            self.assertFalse(model_demo.DEMO_DARK)
+            self.assertTrue(theme.DARK_MODE)
+        finally:
+            theme.DARK_MODE = False
+            model_demo.set_demo_dark(False)
 
     def test_english_chrome(self):
         i18n.LANG = "en"
