@@ -98,6 +98,8 @@ def main() -> None:
         "--hidden-import", f"{PACKAGE.name}.updates",
         "--hidden-import", "PySide6.QtSvg",
         "--add-data", f"{PACKAGE / 'assets' / 'icons'}{os.pathsep}{PACKAGE.name}/assets/icons",
+        "--add-data", f"{PACKAGE / 'assets' / 'fonts'}{os.pathsep}{PACKAGE.name}/assets/fonts",
+        "--add-data", f"{PACKAGE / 'assets' / 'demo_clip'}{os.pathsep}{PACKAGE.name}/assets/demo_clip",
         "--icon", str(PACKAGE / "assets" / "app.ico"),
         "--distpath", str(DIST),
         "--workpath", str(work),

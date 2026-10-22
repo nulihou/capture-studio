@@ -50,7 +50,7 @@ One discovered board is selected. Several boards are listed for you to choose. A
 
 Customer-facing view. The model runs on the board (KV260 DPU, Jetson, RK3588, Ascend, and similar). This PC only receives pictures and results. **Board** reuses the live preview and aligns each frame with `POST /infer`. **F** opens the full-screen show and hides the adjustment controls. The demo/replay badge stays visible.
 
-Without a board, **Synthetic**, a local video, or a local camera previews the page. Those boxes are scripted and labeled **Demo data**, not recognition. The temperature and CPU figures in that mode are labeled **Sample meters, not the board**. A session can be saved as JSONL and replayed. Title, customer name, and logo position are set on the page.
+Without a board, the page plays a redistributable aerial intersection clip with hand-placed marks (source and license: `capture_studio/assets/demo_clip/ATTRIBUTION.md`). It is labeled **Demo data** — demo marks, not recognition. A local video or camera still gets scripted boxes, also labeled demo data. Temperature and CPU in that mode are labeled **Sample meters, not the board**. A session can be saved as JSONL and replayed. Title, customer name, and logo position are set on the page.
 
 Protocol and the minimal on-board sender: [`capture_studio/docs/inference_protocol.md`](capture_studio/docs/inference_protocol.md).
 
