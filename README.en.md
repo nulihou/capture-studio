@@ -21,7 +21,7 @@ Or double-click `capture_studio\Start-CaptureStudio.cmd`. `Start-KV260-CaptureSt
 
 Screenshots are from v0.12.5, at 125% scaling, with no camera attached.
 
-Sidebar: Test, PC, Board, Peripherals, Sessions, Settings.
+Sidebar: Test, PC, Board, Model Demo, Peripherals, Sessions, Settings.
 
 ### Camera test (dark)
 
@@ -43,6 +43,18 @@ Discovery (also explained in the connection wizard):
 - Written steps when the NIC has only 169.254 or no gateway; **Test this IP** checks one address you type
 
 One discovered board is selected. Several boards are listed for you to choose. A single SSH computer with no board asks you to check the address.
+
+### Model demo
+
+![Model demo](docs/screenshots/v12/zh_model_demo.png)
+
+Customer-facing view. The model runs on the board (KV260 DPU, Jetson, RK3588, Ascend, and similar). This PC only receives pictures and results. **Board** reuses the live preview and aligns each frame with `POST /infer`. **F** opens the full-screen show and hides the adjustment controls. The demo/replay badge stays visible.
+
+Without a board, **Synthetic**, a local video, or a local camera previews the page. Those boxes are scripted and labeled **Demo data**, not recognition. The temperature and CPU figures in that mode are labeled **Sample meters, not the board**. A session can be saved as JSONL and replayed. Title, customer name, and logo position are set on the page.
+
+Protocol and the minimal on-board sender: [`capture_studio/docs/inference_protocol.md`](capture_studio/docs/inference_protocol.md).
+
+![Model demo, full screen](docs/screenshots/v12/zh_model_demo_full.png)
 
 ### Peripherals (dark)
 

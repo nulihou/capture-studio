@@ -7,6 +7,7 @@ jpegparse, splitmuxsink, and (for raw input) omxh264enc.
 from __future__ import annotations
 
 import argparse
+from collections import deque
 from dataclasses import fields
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import hmac
@@ -14,6 +15,7 @@ import json
 from pathlib import Path
 import secrets
 import shutil
+import struct
 import subprocess
 import sys
 import threading
@@ -33,6 +35,7 @@ class AgentState:
         self.lock = threading.RLock()
         self.recorder: ProcessRecorder | None = None
         self.live = None
+        self.infer_results: deque[dict[str, Any]] = deque(maxlen=128)
 
     def live_start(self, payload):
         from .live_preview import LivePreview
@@ -66,6 +69,49 @@ class AgentState:
             if self.live is None:
                 return {'preview': False, 'source_fps': None, 'preview_fps': None}
             return {'preview': True, **self.live.telemetry()}
+
+    def live_packet(self):
+        """Latest preview PNG plus the id a board model echoes in its result."""
+        with self.lock:
+            live = self.live
+        if live is None:
+            raise RuntimeError('preview is not running')
+        frame = live.latest()
+        tel = live.telemetry()
+        from .inference import png_size
+        width, height = png_size(frame)
+        return frame, {
+            'frame_id': int(tel.get('frame_id') or 0),
+            'timestamp_ns': int(tel.get('timestamp_ns') or 0),
+            'width': width,
+            'height': height,
+        }
+
+    def submit_inference(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Store one model result. Parsing only — the model already ran on the board."""
+        from .inference import parse_result
+        item = parse_result(payload)
+        with self.lock:
+            self.infer_results.append(item)
+        return {'accepted': True, 'frame_id': item['frame_id']}
+
+    def inference_view(self, frame_id: int | None = None, timestamp_ns: int | None = None) -> dict[str, Any]:
+        from .inference import align_result
+        with self.lock:
+            rows = list(self.infer_results)
+            live = self.live
+        preview = None
+        if live is not None:
+            tel = live.telemetry()
+            preview = {'frame_id': int(tel.get('frame_id') or 0),
+                       'timestamp_ns': int(tel.get('timestamp_ns') or 0)}
+        use_id = frame_id if frame_id is not None else (preview or {}).get('frame_id')
+        use_ts = timestamp_ns if timestamp_ns is not None else (preview or {}).get('timestamp_ns')
+        # frame_id 0 before the first PNG is not a real frame; don't pin a result to it
+        if preview is not None and use_id == 0 and not (preview.get('timestamp_ns') or 0):
+            use_id = None
+        result, how = align_result(rows, frame_id=use_id, timestamp_ns=use_ts if use_ts else None)
+        return {'preview': preview, 'result': result, 'aligned': how}
 
     def _finish_exited(self) -> None:
         if self.recorder is not None and not self.recorder.status()["running"]:
@@ -222,9 +268,12 @@ def make_handler(state: AgentState) -> type[BaseHTTPRequestHandler]:
             self.wfile.write(body)
 
         def _payload(self) -> dict[str, Any]:
+            return self._read_json(16384)
+
+        def _read_json(self, limit: int) -> dict[str, Any]:
             size = int(self.headers.get("Content-Length", "0"))
-            if not (0 <= size <= 16384):
-                raise ValueError("request body exceeds 16 KiB")
+            if not (0 <= size <= limit):
+                raise ValueError(f"request body exceeds {limit // 1024} KiB")
             value = json.loads(self.rfile.read(size).decode("utf-8"))
             if not isinstance(value, dict):
                 raise ValueError("request body must be a JSON object")
@@ -262,6 +311,38 @@ def make_handler(state: AgentState) -> type[BaseHTTPRequestHandler]:
                         time.sleep(1/240)
                 elif path == '/live/metrics':
                     self._json(200, state.live_metrics())
+                elif path == '/live/envelope':
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/x-capture-envelope')
+                    self.end_headers()
+                    previous = None
+                    while True:
+                        try:
+                            body, meta = state.live_packet()
+                        except RuntimeError:
+                            if state.live is None:
+                                break
+                            time.sleep(.02)
+                            continue
+                        if body != previous:
+                            header = json.dumps(meta, separators=(',', ':')).encode('utf-8')
+                            try:
+                                self.wfile.write(struct.pack('>I', len(header)))
+                                self.wfile.write(header)
+                                self.wfile.write(body)
+                                self.wfile.flush()
+                            except (BrokenPipeError, ConnectionResetError):
+                                break
+                            previous = body
+                        time.sleep(1/240)
+                elif path == '/infer':
+                    query = parse_qs(urlsplit(self.path).query)
+                    def _optional_int(key: str) -> int | None:
+                        raw = (query.get(key) or [None])[0]
+                        if raw is None or raw == '':
+                            return None
+                        return int(raw)
+                    self._json(200, state.inference_view(_optional_int('frame_id'), _optional_int('timestamp_ns')))
                 elif path == "/devices":
                     from capture_studio.board_devices import board_facts, usb_image_devices
                     info = usb_image_devices()
@@ -323,6 +404,8 @@ def make_handler(state: AgentState) -> type[BaseHTTPRequestHandler]:
                     self._json(200, state.stop())
                 elif path == "/snapshot":
                     self._png(state.snapshot(self._payload()))
+                elif path == "/infer":
+                    self._json(200, state.submit_inference(self._read_json(262144)))
                 else:
                     raise FileNotFoundError("unknown endpoint")
             except (TypeError, ValueError, RuntimeError, FileNotFoundError) as exc:

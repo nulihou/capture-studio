@@ -49,6 +49,8 @@ class LivePreview:
         self.last_access = time.monotonic()
         self.metrics = {'warming_up': True, 'source_fps': None, 'preview_fps': None}
         self.metrics_time = 0
+        self.frame_id = 0
+        self.frame_timestamp_ns = 0
         self.metrics_thread = threading.Thread(target=self._metrics, daemon=True)
         self.metrics_thread.start()
         self.thread = threading.Thread(target=self._read, daemon=True)
@@ -73,6 +75,10 @@ class LivePreview:
             value['stale'] = time.monotonic()-self.metrics_time > 3
             if value['stale'] or self.process.poll() is not None:
                 value['source_fps'] = value['preview_fps'] = None
+            # Assigned when a PNG is stored. Kept beside the worker metrics so a
+            # stderr sample cannot wipe the id the model uses to align boxes.
+            value['frame_id'] = self.frame_id
+            value['timestamp_ns'] = self.frame_timestamp_ns
             return value
 
     def _read(self):
@@ -82,6 +88,8 @@ class LivePreview:
                 with self.lock:
                     self.frame = frame
                     self.frame_time = time.monotonic()
+                    self.frame_id += 1
+                    self.frame_timestamp_ns = time.time_ns()
                     abandoned = self.frame_time-self.last_access > 30
                 if abandoned:
                     self.process.terminate()

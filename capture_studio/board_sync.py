@@ -30,6 +30,8 @@ BOARD_FILES = (
     "native_source.py",
     "native_worker.py",
     "native_capture.c",
+    "inference.py",
+    "board_infer_push.py",
 )
 
 

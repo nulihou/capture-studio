@@ -49,3 +49,14 @@ gst-inspect-1.0 omxh264enc
 `/dev/video0` is an example—use the real device. Camera on the board USB host; negotiated speed via `lsusb -t` (USB2 camera stays USB2 even on a USB3 host port). Ensure enough free space on the board data disk. After capture, the desktop app downloads with SHA-256 verify; if the network drops, recording continues on the board—reconnect and enter the session ID under retrieve/verify.
 
 Lab notes and historical FPS / hub-reset diaries live under `docs/` or dated `*_2026*.md` files in the tree; they are not portable end-user docs.
+
+## Inference results
+
+Models run on the board. The desktop only displays. Post one JSON object per frame to `POST /infer` (same bearer token, body up to 256 KiB). The agent keeps a short ring and aligns it with the preview frame. `GET /live/envelope` is the preview stream with a `frame_id` header in front of each PNG, for a model that wants to consume the same frames the desktop shows.
+
+Protocol, alignment rules, and a minimal sender: [`inference_protocol.md`](inference_protocol.md). On the board:
+
+```bash
+python3 -m capture_studio.board_infer_push --check
+python3 -m capture_studio.board_infer_push --url http://127.0.0.1:8765 --token-file ./capture_token.txt
+```

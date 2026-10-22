@@ -25,6 +25,7 @@ from .camera_modes import PRESETS, mode_key, mode_label, mode_prefix, mode_view,
 from . import fpga_deploy
 from .product import STUDIO
 from . import icons, motion, theme, updates
+from .model_demo import ModelDemoPage
 from . import __version__
 from .v7_ui import V7Mixin
 
@@ -1023,16 +1024,30 @@ class StudioWindow(V7Mixin, QWidget):
         root.addWidget(self._nav())
         canvas = QWidget()
         canvas.setObjectName("canvas")
-        column = QVBoxLayout(canvas)
+        self.canvas = canvas
+        canvas_layout = QVBoxLayout(canvas)
+        canvas_layout.setContentsMargins(0, 0, 0, 0)
+        canvas_layout.setSpacing(0)
+        self.workspace = QWidget()
+        self.workspace.setObjectName("canvas")
+        column = QVBoxLayout(self.workspace)
         column.setContentsMargins(24, 24, 24, 24)
         column.setSpacing(16)
-        column.addWidget(self._title_row())
-        column.addWidget(self._overview())
+        self.title_row = self._title_row()
+        column.addWidget(self.title_row)
+        self.overview_row = self._overview()
+        column.addWidget(self.overview_row)
         body = QHBoxLayout()
         body.setSpacing(16)
         body.addWidget(self._stage(), 1)
         body.addWidget(self._inspector())
         column.addLayout(body, 1)
+        self.demo_page = ModelDemoPage()
+        self.canvas_stack = QStackedWidget()
+        self.canvas_stack.setObjectName("canvas")
+        self.canvas_stack.addWidget(self.workspace)
+        self.canvas_stack.addWidget(self.demo_page)
+        canvas_layout.addWidget(self.canvas_stack)
         root.addWidget(canvas, 1)
 
     def _overview(self) -> QWidget:
@@ -1138,8 +1153,8 @@ class StudioWindow(V7Mixin, QWidget):
         self.pages.setExclusive(True)
         self.page_buttons: dict[str, QPushButton] = {}
         for index, (key, text) in enumerate((
-            ("lab", "测试"), ("pc", "电脑"), ("board", "开发板"), ("periph", "外设"),
-            ("sessions", "会话"), ("settings", "设置"),
+            ("lab", "测试"), ("pc", "电脑"), ("board", "开发板"), ("demo", "模型展示"),
+            ("periph", "外设"), ("sessions", "会话"), ("settings", "设置"),
         )):
             button = QPushButton(tr(text))
             button.setObjectName("nav")
@@ -1193,6 +1208,9 @@ class StudioWindow(V7Mixin, QWidget):
     def _rebuild(self) -> None:
         page = self.current_page
         tab = self.lab_stack.currentIndex() if hasattr(self, "lab_stack") else 0
+        demo = getattr(self, "demo_page", None)
+        if demo is not None:
+            demo.shutdown()
         for window in (self.dialog, self.large):
             if window is not None:
                 window.close()
@@ -2400,25 +2418,27 @@ class StudioWindow(V7Mixin, QWidget):
     def show_page(self, name: str) -> None:
         titles = {
             "lab": "摄像头测试", "pc": "电脑采集", "board": "开发板采集",
-            "sessions": "会话", "settings": "设置", "periph": "外设",
+            "sessions": "会话", "settings": "设置", "periph": "外设", "demo": "模型展示",
         }
         order = {"lab": 0, "pc": 1, "board": 2, "sessions": 3, "settings": 4, "periph": 5}
-        changed = self.stack.currentIndex() != order[name]
         previous = getattr(self, "current_page", "")
-        if changed and "pc" in (name, previous) and previous != name:
+        changed = previous != name
+        if name != "demo" and changed and "pc" in (name, previous) and previous != name:
             # PC and board share one viewport: stop the board stream on the PC page and never
             # carry one source's last frame over to the other page.
             if name == "pc" and STUDIO.live:
                 STUDIO.stop_live()
             STUDIO.clear_preview()
-        self.stack.setCurrentIndex(order[name])
+        if name != "demo":
+            self.stack.setCurrentIndex(order[name])
+            self.footer_stack.setCurrentIndex(order[name])
+        self._apply_demo_layout(name == "demo")
         if changed and self.isVisible():
-            motion.fade_in(self.stack.currentWidget())  # v11: 180 ms fade; instant with reduced motion
+            motion.fade_in(self.demo_page if name == "demo" else self.stack.currentWidget())
         self.page_buttons[name].setChecked(True)
         self.current_page = name
         self.heading.setText(tr(titles[name]))
         self.duration_bar.setVisible(name in {"lab", "pc", "board"})
-        self.footer_stack.setCurrentIndex(order[name])
         self._fit_inspector()
         # Paint source-specific cards/actions now; the periodic tick is not a navigation hook.
         self.refresh(STUDIO.state())
@@ -2819,7 +2839,15 @@ class StudioWindow(V7Mixin, QWidget):
     def _select_session(self, current: QListWidgetItem | None, _previous: QListWidgetItem | None) -> None:
         self.session_id = "" if current is None else str(current.data(Qt.ItemDataRole.UserRole) or "")
 
+    def _apply_demo_layout(self, active: bool) -> None:
+        """The model page replaces the shared preview. Other pages are unchanged."""
+        self.canvas_stack.setCurrentWidget(self.demo_page if active else self.workspace)
+        self.demo_page.set_active(active)
+
     def open_large(self) -> None:
+        if self.current_page == "demo":
+            self.demo_page.toggle_showcase()
+            return
         if self.large is None:
             self.large = LargeView(self)
         self.large.show()

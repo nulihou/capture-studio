@@ -137,13 +137,14 @@ def main() -> None:
     shutil.copy2(user_guide, bundle / "使用说明.md")
     # Optional short package pointer; full docs live at repo root README.
     shutil.copy2(PACKAGE / "README.md", bundle / "README.md")
-    board_agent_doc = PACKAGE / "docs" / "board_agent.md"
     with ZipFile(DIST / "kv260_agent.zip", "w", compression=ZIP_DEFLATED) as archive:
         for name in BOARD_FILES:
             archive.write(PACKAGE / name, f"capture_studio/{name}")
         # Developer board notes under docs/, not a root BOARD_README that looks like a user manual.
-        if board_agent_doc.is_file():
-            archive.write(board_agent_doc, "docs/board_agent.md")
+        for name in ("board_agent.md", "inference_protocol.md"):
+            doc = PACKAGE / "docs" / name
+            if doc.is_file():
+                archive.write(doc, f"docs/{name}")
     # Fresh builds contain no user data. Stop rather than deleting unexpected settings or captures.
     for personal in ('board_connection.json', 'studio_settings.json', 'ui_prefs.json', 'captures'):
         if (bundle / personal).exists():

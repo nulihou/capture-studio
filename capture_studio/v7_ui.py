@@ -26,7 +26,8 @@ from .product import STUDIO
 
 SHORTCUTS = [
     ("Space", "开始 / 停止采集"), ("F", "大屏 / 全屏预览"), ("L", "实时预览开 / 关"), ("P", "预览一帧"),
-    ("H", "采集前体检"), ("R", "刷新外设 / 会话"), ("Ctrl+1…6", "切换页面"), ("Ctrl+K", "连接向导"),
+    ("H", "采集前体检"), ("R", "刷新外设 / 会话"), ("Ctrl+1…6", "切换页面"),
+    ("Ctrl+7", "模型展示"), ("Ctrl+K", "连接向导"),
     ("?", "显示快捷键"), ("Esc", "关闭弹窗 / 退出大屏"),
 ]
 
@@ -474,6 +475,7 @@ class V7Mixin:
         key("Ctrl+K", self.open_wizard)
         for index, page in enumerate(("lab", "pc", "board", "periph", "sessions", "settings"), 1):
             key(f"Ctrl+{index}", lambda name=page: self.show_page(name))
+        key("Ctrl+7", lambda: self.show_page("demo"))
 
     def _typing(self) -> bool:
         focus = QApplication.focusWidget()

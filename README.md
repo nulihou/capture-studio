@@ -21,7 +21,7 @@ python -m capture_studio
 
 截图来自 v0.12.5，比例 125%，当时没有接摄像头。
 
-左侧：测试、电脑、开发板、外设、会话、设置。
+左侧：测试、电脑、开发板、模型展示、外设、会话、设置。
 
 ### 摄像头测试（深色）
 
@@ -51,6 +51,20 @@ python -m capture_studio
 ![外设](docs/screenshots/v12/zh_dark_periph.png)
 
 USB、视频、串口、I2C、SPI、网络、存储、音频、GPIO、显示等；可搜索、筛选、串口终端与导出。
+
+### 模型展示
+
+![模型展示](docs/screenshots/v12/zh_model_demo.png)
+
+给客户看的演示页。模型在开发板上跑（KV260 DPU、Jetson、RK3588、昇腾等），这台电脑只接收画面和识别结果。来源选 **板端** 时，沿用已有实时预览，并按帧对齐板端 `POST /infer` 的结果。快捷键 **F**（或「全屏演示」）进入大屏，调节类控件会隐藏，演示/回放标记仍留在画面上。
+
+没有板子时可以用 **合成场景**、本地视频或本机摄像头预览界面。这些框是脚本生成的，画面上标为 **演示数据**，不是识别结果。这时的温度和 CPU 标成 **示意读数，不是板端**。也可以把一段结果存成 JSONL 再 **回放**。标题、客户名称和 Logo 位置可在页面底部设置。
+
+协议和板端最小脚本见 [`capture_studio/docs/inference_protocol.md`](capture_studio/docs/inference_protocol.md)。
+
+全屏演示：
+
+![模型展示全屏](docs/screenshots/v12/zh_model_demo_full.png)
 
 ## 准备
 
