@@ -1,6 +1,6 @@
 # Capture Studio 便携版使用说明（Windows）
 
-适用 **Windows x64** 便携包（例如 `CaptureStudio_v0.12.5_windows_x64.zip`）。
+适用 **Windows x64** 便携包（例如 `CaptureStudio_v0.13.0_windows_x64.zip`）。下载入口：[v0.13.0 Release](https://github.com/nulihou/capture-studio/releases/tag/v0.13.0)。
 
 把压缩包**完整解压**到可写目录（如 `D:\CaptureStudio`），保留 `CaptureStudio.exe`、`_internal`、`bin` 和说明文件。不要只复制 EXE。本包自带运行时与 FFmpeg，一般**无需安装 Python**。
 

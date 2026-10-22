@@ -13,8 +13,9 @@ from PySide6.QtWidgets import QApplication, QSlider  # noqa: E402
 from capture_studio import i18n, motion  # noqa: E402
 from capture_studio.inference import demo_overlay, load_jsonl  # noqa: E402
 from capture_studio.model_demo import (ModelDemoPage, _box_stroke, _readable_box, badge_copy,  # noqa: E402
-                                       class_color, fit_rect, gallery_picture_rect, map_box,
-                                       stage_content_rect, uniform_dest, zoom_source)
+                                       class_color, demo_nominal_fps, fit_rect, gallery_picture_rect,
+                                       map_box, stage_content_rect, uniform_dest, wobble_fps,
+                                       zoom_source)
 
 APP = QApplication.instance() or QApplication([])
 
@@ -104,6 +105,56 @@ class PageTests(unittest.TestCase):
         self.assertTrue(self.page.showcase_open())
         self.assertEqual(self.page._showcase.findChildren(QSlider), [])
         self.assertTrue(self.page.operator.isVisible())
+
+    def _feed_board(self, fps: float, latency: float, infer_fps: float = 30.0):
+        image = QImage(64, 48, QImage.Format.Format_RGB32)
+        image.fill(0x112233)
+        # Leave the demo source so the next board frame starts a fresh arrival window.
+        self.page.source = "synthetic"
+        self.page._injected = False
+        interval = 1.0 / fps
+        count = int(fps) + 6
+        for index in range(count):
+            result = {
+                "schema": "capture-studio.inference.v1", "frame_id": index, "width": 64, "height": 48,
+                "model": "yolov8n", "backend": "ascend", "latency_ms": latency, "infer_fps": infer_fps,
+                "detections": [{"bbox": [4, 4, 12, 10], "class": "car", "score": 0.6, "track_id": 1}],
+            }
+            self.page.show_board_frame(image, result, now=5000.0 + index * interval)
+        self.page.timer.stop()
+        self.page._stop_poller()
+        shown_fps, shown_latency, _count = self.page.readout_numbers()
+        return float(shown_fps), float(shown_latency)
+
+    def test_demo_fps_follows_clip_metadata_not_playback(self):
+        nominal = demo_nominal_fps()
+        self.assertIsNotNone(nominal)
+        self.assertNotEqual(nominal, 0)
+        # A ten-second gap would be 0.1 fps if the readout used the timer.
+        self.page.step(frame_id=0, now=0.0)
+        self.page.step(frame_id=5, now=10.0)
+        shown = float(self.page.readout_numbers()[0])
+        self.assertAlmostEqual(shown, wobble_fps(nominal, 5), delta=0.05)
+        self.assertGreaterEqual(shown, nominal * 0.98)
+        self.assertLessEqual(shown, nominal * 1.02)
+        self.page.step(frame_id=2, now=10.2)
+        other = float(self.page.readout_numbers()[0])
+        self.assertNotAlmostEqual(shown, other, places=2)
+        self.assertAlmostEqual(other, wobble_fps(nominal, 2), delta=0.05)
+
+    def test_board_fps_follows_arrival_interval_not_demo_nominal(self):
+        self.page.step(frame_id=1, now=0.0)
+        self.page.step(frame_id=2, now=8.0)
+        demo_shown = float(self.page.readout_numbers()[0])
+        self.assertAlmostEqual(demo_shown, wobble_fps(demo_nominal_fps(), 2), delta=0.05)
+        fps10, latency10 = self._feed_board(10, 40.0, infer_fps=30)
+        self.assertAlmostEqual(fps10, 10.0, delta=0.5)
+        self.assertAlmostEqual(latency10, 40.0, delta=0.05)
+        self.assertNotAlmostEqual(fps10, demo_nominal_fps(), delta=5)
+        fps25, latency25 = self._feed_board(25, 12.5, infer_fps=30)
+        self.assertAlmostEqual(fps25, 25.0, delta=0.5)
+        self.assertAlmostEqual(latency25, 12.5, delta=0.05)
+        self.assertNotAlmostEqual(fps25, fps10, delta=5)
 
     def test_fps_survives_a_backwards_clock(self):
         self.page.step(frame_id=1, now=5000.0)

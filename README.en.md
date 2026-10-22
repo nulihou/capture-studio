@@ -6,7 +6,7 @@ Windows app (PySide6) for local USB cameras and SSH boards: **KV260, Jetson, Ras
 
 ## Clone
 
-Current version: **v0.12.9**. The Windows portable build is on [GitHub Releases](https://github.com/nulihou/capture-studio/releases/tag/v0.12.9).
+Current version: **v0.13.0**. The Windows portable build is on [GitHub Releases](https://github.com/nulihou/capture-studio/releases/tag/v0.13.0).
 
 ```bash
 git clone https://github.com/nulihou/capture-studio.git
@@ -50,7 +50,7 @@ One discovered board is selected. Several boards are listed for you to choose. A
 
 Customer-facing view. The model runs on the board (KV260 DPU, Jetson, RK3588, Ascend, and similar). This PC only receives pictures and results. **Board** reuses the live preview and aligns each frame with `POST /infer`. **F** opens the full-screen show and hides the adjustment controls. The demo/replay badge stays visible. Full screen uses this page's own light or dark choice, which starts light, and does not change the theme of the other pages.
 
-Without a board, the page plays a redistributable ground-to-air clip: a flock of birds against the sky, with offline marks on most of the visible birds (source and license: `capture_studio/assets/demo_clip/ATTRIBUTION.md`). Boxes use a dark halo so they stay readable in both themes, and the small-target gallery stays square. It is labeled **Demo data** — demo marks, not recognition. The default title is “低空小目标检测”. This page remembers its own light or dark appearance and starts light; other pages keep the app theme. A local video or camera still gets scripted boxes, also labeled demo data. Temperature and CPU in that mode are labeled **Sample meters, not the board**. Switching source clears the previous FPS, latency, counts, and events. A session can be saved as JSONL and replayed. Title, customer name, and logo position are set on the page.
+Without a board, the page plays a redistributable ground-to-air clip: a flock of birds against the sky, with offline marks on most of the visible birds (source and license: `capture_studio/assets/demo_clip/ATTRIBUTION.md`). The demo clip's inference FPS is an illustrative reading from the clip metadata (about 30 fps), not the playback timer. Board, local video, camera, and replay use the real arrival rate. Boxes use a dark halo so they stay readable in both themes, and the small-target gallery stays square. It is labeled **Demo data** — demo marks, not recognition. The default title is “低空小目标检测”. This page remembers its own light or dark appearance and starts light; other pages keep the app theme. A local video or camera still gets scripted boxes, also labeled demo data. Temperature and CPU in that mode are labeled **Sample meters, not the board**. Switching source clears the previous FPS, latency, counts, and events. A session can be saved as JSONL and replayed. Title, customer name, and logo position are set on the page.
 
 Protocol and the minimal on-board sender: [`capture_studio/docs/inference_protocol.md`](capture_studio/docs/inference_protocol.md).
 

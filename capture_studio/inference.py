@@ -126,6 +126,12 @@ def parse_result(payload: Any) -> dict[str, Any]:
             result[key] = text
     if payload.get("preview_only") is True:
         result["preview_only"] = True
+    # Optional demo-clip hint. The desktop ignores it unless the source is the demo clip.
+    if "infer_fps" in payload and payload["infer_fps"] is not None:
+        infer_fps = _finite(payload["infer_fps"], "infer_fps")
+        if not 0 < infer_fps <= 240:
+            raise ValueError("infer_fps is out of range")
+        result["infer_fps"] = round(infer_fps, 3)
     return result
 
 

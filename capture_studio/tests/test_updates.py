@@ -62,6 +62,30 @@ class Check(unittest.TestCase):
         self.assertEqual(updates.check("0.13.0", ok(REL))["state"], "latest")
         self.assertEqual(updates.check("0.13.0", ok(dict(REL, assets=[])))["asset_url"], "")
 
+    def test_installed_version_matches_v13_release(self):
+        from capture_studio import __version__
+        payload = {
+            "tag_name": f"v{__version__}",
+            "html_url": f"https://github.com/nulihou/capture-studio/releases/tag/v{__version__}",
+            "body": "v0.13.0",
+            "assets": [{
+                "name": f"CaptureStudio_v{__version__}_windows_x64.zip",
+                "size": 10,
+                "browser_download_url": (
+                    f"https://github.com/nulihou/capture-studio/releases/download/v{__version__}/"
+                    f"CaptureStudio_v{__version__}_windows_x64.zip"
+                ),
+            }],
+        }
+        found = updates.check(__version__, ok(payload))
+        self.assertEqual(__version__, "0.13.0")
+        self.assertEqual(found["state"], "latest")
+        self.assertEqual(found["version"], "0.13.0")
+        self.assertEqual(found["asset_name"], "CaptureStudio_v0.13.0_windows_x64.zip")
+        older = updates.check("0.12.9", ok(payload))
+        self.assertEqual(older["state"], "newer")
+        self.assertEqual(older["version"], "0.13.0")
+
     def test_errors_are_friendly(self):
         cases = [
             (http(403, {"X-RateLimit-Remaining": "0"}), "访问次数"), (http(429), "访问次数"), (http(404), "还没有发布"),

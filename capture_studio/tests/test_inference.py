@@ -51,6 +51,9 @@ class ProtocolTests(unittest.TestCase):
         self.assertEqual(parsed["backend"], "kv260-dpu")
         again = parse_result(json.loads(result_line(parsed)))
         self.assertEqual(again["frame_id"], 3)
+        hinted = parse_result({**raw, "preview_only": True, "infer_fps": 30})
+        self.assertEqual(hinted["infer_fps"], 30.0)
+        self.assertNotIn("infer_fps", parsed)
 
     def test_norm_boxes_become_pixels(self):
         parsed = parse_result({

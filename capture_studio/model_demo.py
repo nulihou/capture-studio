@@ -198,6 +198,43 @@ def _load_clip() -> tuple[list[QImage], list[dict[str, Any]]]:
     return frames, rows
 
 
+def _positive_fps(raw: Any) -> float | None:
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(value) or not 0 < value <= 240:
+        return None
+    return value
+
+
+def demo_nominal_fps() -> float | None:
+    """Illustrative rate for the bundled clip. The number lives in demo_meta.json."""
+    path = _CLIP / "demo_meta.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    return _positive_fps(data.get("infer_fps"))
+
+
+def illustrative_infer_fps(source: str, result: dict[str, Any] | None) -> float | None:
+    """Demo-clip readout only. Video, camera, replay, and the board keep measured rates."""
+    if source != "synthetic" or not result or not result.get("preview_only"):
+        return None
+    value = _positive_fps(result.get("infer_fps"))
+    if value is None:
+        value = demo_nominal_fps()
+    return value
+
+
+def wobble_fps(nominal: float, frame_id: int) -> float:
+    """A small relative sway so the demo figure is not a flat digit. The center is `nominal`."""
+    return nominal * (1.0 + 0.012 * math.sin(int(frame_id) / 3.7))
+
+
 def clip_frame(frame_id: int) -> tuple[QImage, dict[str, Any]] | None:
     """Picture plus the hand-placed marks for one bundled frame. Not a detector."""
     frames, rows = _load_clip()
@@ -212,6 +249,10 @@ def clip_frame(frame_id: int) -> tuple[QImage, dict[str, Any]] | None:
     result["width"] = image.width()
     result["height"] = image.height()
     result["preview_only"] = True
+    if _positive_fps(result.get("infer_fps")) is None:
+        nominal = demo_nominal_fps()
+        if nominal is not None:
+            result["infer_fps"] = nominal
     return image, result
 
 
@@ -1357,6 +1398,13 @@ class ModelDemoPage(QWidget):
                 self.state.image, result = bundled
         self.state.result = result
         self.kind = "demo"
+        if self.source == "synthetic" and illustrative_infer_fps(self.source, result) is None:
+            nominal = demo_nominal_fps()
+            if nominal is not None:
+                result = dict(result)
+                result["infer_fps"] = nominal
+                result["preview_only"] = True
+                self.state.result = result
         self._note(result, now)
         self._paint_health(_demo_meters(self._frame_id), preview=True)
 
@@ -1411,8 +1459,12 @@ class ModelDemoPage(QWidget):
             self.status.setText(self._board_error)
 
     def show_board_frame(self, image: QImage, result: dict[str, Any] | None,
-                         health: dict[str, Any] | None = None, connected: bool = True) -> None:
-        self._clear_readout()
+                         health: dict[str, Any] | None = None, connected: bool = True,
+                         now: float | None = None) -> None:
+        # Clear demo numbers once, when the board source starts. Later frames
+        # keep the arrival window so the readout can follow the real rate.
+        if self.source != "board" or not self._injected:
+            self._clear_readout()
         self.source = "board"
         self._injected = True
         self._stop_poller()
@@ -1429,7 +1481,7 @@ class ModelDemoPage(QWidget):
         else:
             self.kind = "waiting"
         if result:
-            self._note(result, time.monotonic())
+            self._note(result, time.monotonic() if now is None else now)
         self._paint_health(board_health(health or {}), preview=False)
         self._animate()
         self._publish()
@@ -1439,14 +1491,19 @@ class ModelDemoPage(QWidget):
         if frame_id == self._last_noted:
             return
         self._last_noted = frame_id
-        if self._arrivals and now < self._arrivals[-1]:
-            self._arrivals.clear()
-        self._arrivals.append(now)
-        self._arrivals = [stamp for stamp in self._arrivals if 0.0 <= now - stamp <= 1.0]
-        if len(self._arrivals) >= 2:
-            span = self._arrivals[-1] - self._arrivals[0]
-            if span > 0:
-                self._fps_target = (len(self._arrivals) - 1) / span
+        nominal = illustrative_infer_fps(self.source, result)
+        if nominal is not None:
+            # Bundled demo clip: the figure comes from the payload, not the timer.
+            self._fps_target = wobble_fps(nominal, frame_id)
+        else:
+            if self._arrivals and now < self._arrivals[-1]:
+                self._arrivals.clear()
+            self._arrivals.append(now)
+            self._arrivals = [stamp for stamp in self._arrivals if 0.0 <= now - stamp <= 1.0]
+            if len(self._arrivals) >= 2:
+                span = self._arrivals[-1] - self._arrivals[0]
+                if span > 0:
+                    self._fps_target = (len(self._arrivals) - 1) / span
         latency = float(result.get("latency_ms") or 0.0)
         self._latency_target = latency
         self.fps_samples.append(self._fps_target)
