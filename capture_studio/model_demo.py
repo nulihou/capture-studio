@@ -1,7 +1,7 @@
 """Model demo page. The desktop only draws frames and protocol results.
 
-Inference stays on the board. The bundled street clip is a redistributable
-aerial shot plus hand-placed marks (see assets/demo_clip/ATTRIBUTION.md).
+Inference stays on the board. The bundled clip is a redistributable
+ground-to-air sky shot plus hand-placed marks (see assets/demo_clip/ATTRIBUTION.md).
 Those marks are labeled demo data. A user video or camera still gets the
 scripted overlay, also labeled demo data — the pixels are not classified here.
 """
@@ -42,7 +42,7 @@ _CLASS_COLORS = {
 }
 _CLASS_ZH = {
     "person": "行人", "car": "汽车", "bus": "公交", "truck": "卡车",
-    "bicycle": "自行车", "drone": "无人机", "bird": "鸟",
+    "bicycle": "自行车", "drone": "无人机", "bird": "飞鸟", "airplane": "飞机",
 }
 _PALETTE = ("#6C97E8", "#E2B15A", "#3DDC97", "#C9A6FF", "#F0A36A", "#7ED0E0", "#FF8FA3", "#9BB0C9")
 _INK = QColor("#F4F7FB")
@@ -50,6 +50,33 @@ _MUTED = QColor("#93A4BA")
 _LINE = QColor(150, 186, 255, 48)
 _PANEL = QColor(12, 20, 36, 236)
 _BG = QColor("#070B12")
+_CARD = QColor(8, 14, 26, 180)
+_TRACK = QColor(150, 186, 255, 28)
+_CHIP = QColor(8, 14, 26, 210)
+
+
+def apply_palette() -> None:
+    """Page and fullscreen share this palette so the showcase follows the app theme."""
+    global _INK, _MUTED, _LINE, _PANEL, _BG, _CARD, _TRACK, _CHIP
+    from . import theme
+    if theme.DARK_MODE:
+        _INK = QColor("#F4F7FB")
+        _MUTED = QColor("#93A4BA")
+        _LINE = QColor(150, 186, 255, 48)
+        _PANEL = QColor(12, 20, 36, 236)
+        _BG = QColor("#070B12")
+        _CARD = QColor(8, 14, 26, 180)
+        _TRACK = QColor(150, 186, 255, 28)
+        _CHIP = QColor(8, 14, 26, 210)
+    else:
+        _INK = QColor("#142033")
+        _MUTED = QColor("#5A6C82")
+        _LINE = QColor(28, 58, 96, 58)
+        _PANEL = QColor("#FFFFFF")
+        _BG = QColor("#E8EEF5")
+        _CARD = QColor("#F7FAFD")
+        _TRACK = QColor(28, 58, 96, 28)
+        _CHIP = QColor("#FFFFFF")
 
 _BADGE = {
     "demo": ("演示数据", "演示标注，不是识别结果"),
@@ -174,15 +201,28 @@ def _glyph(name: str, color: str, size: int) -> Any:
 
 
 def _panel(painter: QPainter, rect: QRectF, radius: float = 14) -> None:
+    from . import theme
     painter.setPen(QPen(_LINE, 1))
     painter.setBrush(_PANEL)
     painter.drawRoundedRect(rect, radius, radius)
-    gloss = QLinearGradient(rect.topLeft(), QPointF(rect.left(), rect.top() + 28))
-    gloss.setColorAt(0.0, QColor(255, 255, 255, 16))
-    gloss.setColorAt(1.0, QColor(255, 255, 255, 0))
+    if theme.DARK_MODE:
+        gloss = QLinearGradient(rect.topLeft(), QPointF(rect.left(), rect.top() + 28))
+        gloss.setColorAt(0.0, QColor(255, 255, 255, 16))
+        gloss.setColorAt(1.0, QColor(255, 255, 255, 0))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(gloss)
+        painter.drawRoundedRect(rect.adjusted(1, 1, -1, -1), radius, radius)
+        return
+    # Light panels get a cool top wash, not a dark-mode gloss on white.
+    wash = QLinearGradient(rect.topLeft(), QPointF(rect.left(), rect.top() + 42))
+    wash.setColorAt(0.0, QColor(47, 111, 224, 16))
+    wash.setColorAt(1.0, QColor(47, 111, 224, 0))
     painter.setPen(Qt.PenStyle.NoPen)
-    painter.setBrush(gloss)
-    painter.drawRoundedRect(rect.adjusted(1, 1, -1, -1), radius, radius)
+    painter.setBrush(wash)
+    painter.drawRoundedRect(rect.adjusted(1, 1, -1, -1), radius - 1, radius - 1)
+    painter.setPen(QPen(QColor(255, 255, 255, 230), 1))
+    painter.drawLine(QPointF(rect.left() + radius, rect.top() + 1.5),
+                     QPointF(rect.right() - radius, rect.top() + 1.5))
 
 
 def _section(painter: QPainter, x: float, y: float, width: float, icon: str, title: str,
@@ -253,11 +293,11 @@ def _label(painter: QPainter, rect: QRectF, det: dict[str, Any], color: QColor, 
         x = max(bounds.left() + 2, bounds.right() - box_w - 2)
     box = QRectF(x, y, box_w, box_h)
     painter.setPen(Qt.PenStyle.NoPen)
-    painter.setBrush(QColor(6, 10, 18, 200))
+    painter.setBrush(QColor(6, 10, 18, 210))
     painter.drawRoundedRect(box, 4, 4)
     painter.setBrush(color)
     painter.drawRoundedRect(QRectF(box.left(), box.top(), 3, box.height()), 1, 1)
-    painter.setPen(_INK)
+    painter.setPen(QColor("#F4F7FB"))
     painter.drawText(box.adjusted(8, 0, -4, 0),
                      int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), text)
     painter.restore()
@@ -269,7 +309,8 @@ def _draw_zoom(painter: QPainter, dest: QRectF, image: QImage, det: dict[str, An
     clip = QPainterPath()
     clip.addRoundedRect(dest, 8, 8)
     painter.setClipPath(clip)
-    painter.fillRect(dest, QColor("#0B1220"))
+    from . import theme
+    painter.fillRect(dest, QColor("#0B1220") if theme.DARK_MODE else QColor("#E4EBF3"))
     if image.isNull() or det is None or not result:
         painter.setPen(_MUTED)
         painter.setFont(_font(12))
@@ -300,7 +341,7 @@ def _draw_zoom(painter: QPainter, dest: QRectF, image: QImage, det: dict[str, An
 
 def _chart(painter: QPainter, rect: QRectF, samples: list[float], color: QColor) -> None:
     plot = rect.adjusted(36, 4, -4, -16)
-    painter.setPen(QPen(QColor(150, 186, 255, 28), 1))
+    painter.setPen(QPen(_LINE, 1))
     values = samples[-48:] or [0.0, 0.0]
     low, high = min(values), max(values)
     if high - low < 1e-3:
@@ -313,7 +354,7 @@ def _chart(painter: QPainter, rect: QRectF, samples: list[float], color: QColor)
         painter.setFont(_font(10, mono=True))
         painter.drawText(QRectF(rect.left(), y - 7, 34, 14),
                          int(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter), f"{label:.0f}")
-        painter.setPen(QPen(QColor(150, 186, 255, 28), 1))
+        painter.setPen(QPen(_LINE, 1))
     if len(values) >= 2:
         path = QPainterPath()
         fill = QPainterPath()
@@ -350,7 +391,7 @@ def _chart(painter: QPainter, rect: QRectF, samples: list[float], color: QColor)
 
 def _ring(painter: QPainter, center: QPointF, radius: float, fraction: float, color: QColor) -> None:
     rect = QRectF(center.x() - radius, center.y() - radius, radius * 2, radius * 2)
-    pen = QPen(QColor(150, 186, 255, 36), 5)
+    pen = QPen(_LINE, 5)
     pen.setCapStyle(Qt.PenCapStyle.RoundCap)
     painter.setPen(pen)
     painter.setBrush(Qt.BrushStyle.NoBrush)
@@ -399,6 +440,7 @@ class VideoStage(QWidget):
         self.page.pin_at_image(x, y)
 
     def paintEvent(self, _event: Any) -> None:
+        apply_palette()
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
@@ -474,14 +516,17 @@ class HeaderBar(QWidget):
         return self.sizeHint()
 
     def paintEvent(self, _event: Any) -> None:
+        apply_palette()
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.fillRect(self.rect(), _BG)
         rect = QRectF(self.rect()).adjusted(0, 0, -1, -1)
         _panel(painter, rect, 14)
+        from . import theme
+        accent_ink = QColor("#6C97E8") if theme.DARK_MODE else QColor("#2F6FE0")
         accent = QLinearGradient(rect.topLeft(), QPointF(rect.left() + 220, rect.top()))
-        accent.setColorAt(0.0, QColor("#6C97E8"))
-        accent.setColorAt(1.0, QColor(108, 151, 232, 0))
+        accent.setColorAt(0.0, accent_ink)
+        accent.setColorAt(1.0, QColor(accent_ink.red(), accent_ink.green(), accent_ink.blue(), 0))
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(accent)
         painter.drawRect(QRectF(rect.left() + 14, rect.top() + 1, 180, 2))
@@ -495,7 +540,7 @@ class HeaderBar(QWidget):
             lw = lh * logo.width() / max(1, logo.height())
             painter.drawImage(QRectF(left, rect.top() + (rect.height() - lh) / 2, lw, lh), logo)
             left += lw + 14
-        title = state.title or tr("模型展示")
+        title = state.title or tr("低空小目标检测")
         painter.setPen(_INK)
         painter.setFont(_font(30, QFont.Weight.DemiBold))
         painter.drawText(QRectF(left, block_top, rect.width() * 0.42, 36),
@@ -504,7 +549,7 @@ class HeaderBar(QWidget):
         subtitle = detail
         if state.customer:
             subtitle = f"{state.customer}   ·   {detail}"
-        painter.setPen(QColor("#D5DEEA"))
+        painter.setPen(_MUTED)
         painter.setFont(_font(15))
         painter.drawText(QRectF(left, block_top + 36, rect.width() * 0.46, 24),
                          int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter), subtitle)
@@ -575,6 +620,7 @@ class RailCanvas(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
 
     def paintEvent(self, _event: Any) -> None:
+        apply_palette()
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         inner = QRectF(self.rect()).adjusted(14, 12, -14, -12)
@@ -610,10 +656,19 @@ class RailCanvas(QWidget):
             (tr("时延"), f"{page.latency_value:0.1f}", "ms", "#E2B15A", "ui.gauge"),
             (tr("目标"), str(len(page.visible_detections())), "", "#3DDC97", "act.detect"),
         )
+        from . import theme
         for index, (caption, value, unit, color, icon) in enumerate(cards):
             box = QRectF(inner.left() + index * (width + gap), inner.top(), width, height)
-            painter.setPen(QPen(QColor(color), 1))
-            painter.setBrush(QColor(8, 14, 26, 180))
+            painter.setPen(QPen(QColor(color), 1.25 if not theme.DARK_MODE else 1))
+            if theme.DARK_MODE:
+                painter.setBrush(_CARD)
+            else:
+                tint = QColor(color)
+                painter.setBrush(QColor(
+                    int(255 * 0.90 + tint.red() * 0.10),
+                    int(255 * 0.90 + tint.green() * 0.10),
+                    int(255 * 0.90 + tint.blue() * 0.10),
+                ))
             painter.drawRoundedRect(box, 10, 10)
             painter.drawPixmap(int(box.left() + 10), int(box.top() + 8), _glyph(icon, color, 14))
             painter.setPen(_MUTED)
@@ -649,7 +704,7 @@ class RailCanvas(QWidget):
                              int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter), label)
             track = QRectF(inner.left() + 68, y + 5, inner.width() - 104, 8)
             painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(QColor(150, 186, 255, 28))
+            painter.setBrush(_TRACK)
             painter.drawRoundedRect(track, 4, 4)
             fill = QRectF(track.left(), track.top(), track.width() * (count / peak if peak else 0), track.height())
             painter.setBrush(color)
@@ -739,6 +794,7 @@ class HealthStrip(QWidget):
             label.setText(self.page.health_rows[key].text())
 
     def paintEvent(self, _event: Any) -> None:
+        apply_palette()
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         values = self.page.meter_values
@@ -767,40 +823,86 @@ class TimelineBar(QWidget):
         return self.sizeHint()
 
     def paintEvent(self, _event: Any) -> None:
+        apply_palette()
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.fillRect(self.rect(), _BG)
         rect = QRectF(self.rect()).adjusted(0, 0, -1, -1)
         _panel(painter, rect, 14)
-        y = _section(painter, rect.left() + 14, rect.top() + 10, rect.width() - 28,
+        y = _section(painter, rect.left() + 14, rect.top() + 8, rect.width() - 28,
                      "nav.sessions", tr("检测事件"), "#6C97E8")
-        samples = self.page.count_samples[-60:]
-        if len(samples) >= 2:
-            plot = QRectF(rect.left() + 14, y, rect.width() - 28, max(28.0, rect.bottom() - y - 36))
-            peak = max(samples) or 1
+        samples = self.page.class_samples[-48:]
+        plot = QRectF(rect.left() + 36, y, rect.width() - 52, 42)
+        peak = 2
+        names: list[str] = []
+        for row in samples:
+            for name, count in row.items():
+                if name not in names and count:
+                    names.append(name)
+            peak = max(peak, sum(row.values()))
+        painter.setPen(QPen(_LINE, 1))
+        for step, label in ((0, str(peak)), (1, str(peak // 2)), (2, "0")):
+            gy = plot.top() + plot.height() * step / 2
+            painter.drawLine(QPointF(plot.left(), gy), QPointF(plot.right(), gy))
+            painter.setPen(_MUTED)
+            painter.setFont(_font(10, mono=True))
+            painter.drawText(QRectF(rect.left() + 4, gy - 7, 28, 14),
+                             int(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter), label)
+            painter.setPen(QPen(_LINE, 1))
+        if samples:
+            span = plot.width() / max(1, len(samples))
+            bar_w = min(7.0, max(2.0, span * 0.38))
             painter.setPen(Qt.PenStyle.NoPen)
-            span = plot.width() / len(samples)
-            for index, value in enumerate(samples):
-                bar_h = max(2.0, plot.height() * value / peak)
-                painter.setBrush(QColor("#6C97E8"))
-                painter.drawRoundedRect(QRectF(plot.left() + index * span, plot.bottom() - bar_h,
-                                               max(1.0, span - 1), bar_h), 1, 1)
-            y = plot.bottom() + 6
+            for index, row in enumerate(samples):
+                stacked = 0.0
+                slot_x = plot.left() + index * span + (span - bar_w) / 2
+                for name in names:
+                    count = int(row.get(name) or 0)
+                    if count <= 0:
+                        continue
+                    bar_h = max(2.0, plot.height() * count / peak)
+                    painter.setBrush(class_color(name))
+                    painter.drawRoundedRect(QRectF(slot_x, plot.bottom() - stacked - bar_h,
+                                                   bar_w, bar_h), 1.5, 1.5)
+                    stacked += bar_h
+        painter.setPen(_MUTED)
+        painter.setFont(_font(10))
+        painter.drawText(QRectF(plot.left(), plot.bottom() + 1, 36, 14),
+                         int(Qt.AlignmentFlag.AlignLeft), tr("较早"))
+        painter.drawText(QRectF(plot.right() - 36, plot.bottom() + 1, 36, 14),
+                         int(Qt.AlignmentFlag.AlignRight), tr("现在"))
+        legend_x = plot.left() + 48
+        painter.setFont(_font(11, QFont.Weight.DemiBold))
+        for name in names[:6]:
+            label = class_label(name)
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(class_color(name))
+            painter.drawRoundedRect(QRectF(legend_x, plot.bottom() + 3, 8, 8), 2, 2)
+            painter.setPen(_INK)
+            painter.drawText(QRectF(legend_x + 12, plot.bottom() + 1, 72, 14),
+                             int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter), label)
+            legend_x += 18 + painter.fontMetrics().horizontalAdvance(label)
+        y = plot.bottom() + 18
         x = rect.left() + 14
         painter.setFont(_font(12, QFont.Weight.DemiBold, mono=True))
-        for stamp, name, score in self.page.events[-8:]:
+        seen: set[str] = set()
+        for stamp, name, score in reversed(self.page.events):
+            if name in seen:
+                continue
+            seen.add(name)
             text = f"{stamp}  {class_label(name)}  {score:.2f}"
-            width = painter.fontMetrics().horizontalAdvance(text) + 16
-            if x + width > rect.right() - 10:
+            width = painter.fontMetrics().horizontalAdvance(text) + 18
+            if x + width > rect.right() - 8:
                 break
             chip = QRectF(x, y, width, 22)
             painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(QColor(class_color(name)))
+            painter.setBrush(class_color(name))
             painter.drawRoundedRect(QRectF(chip.left(), chip.top(), 3, chip.height()), 1, 1)
-            painter.setBrush(QColor(8, 14, 26, 210))
+            painter.setPen(QPen(_LINE, 1))
+            painter.setBrush(_CHIP)
             painter.drawRoundedRect(chip.adjusted(3, 0, 0, 0), 4, 4)
             painter.setPen(_INK)
-            painter.drawText(chip.adjusted(8, 0, -4, 0), int(Qt.AlignmentFlag.AlignVCenter), text)
+            painter.drawText(chip.adjusted(10, 0, -4, 0), int(Qt.AlignmentFlag.AlignVCenter), text)
             x += width + 8
 
 
@@ -817,40 +919,69 @@ def _gallery_targets(page: "ModelDemoPage", limit: int) -> list[dict[str, Any]]:
 
 def _chrome_qss(scale: float) -> str:
     """Scoped to the demo page so combo/slider rules cannot stretch the shared footer."""
+    apply_palette()
+    from . import theme
     body = int(round(13 * scale))
     small = int(round(12 * scale))
     root = "QWidget#demoRoot"
+    if theme.DARK_MODE:
+        page, panel, ink, muted = "#070B12", "#101826", "#E7EEF8", "#93A4BA"
+        field, line, checked, accent = "#0C1422", "rgba(160, 190, 255, 0.20)", "#1B3E78", "#6C97E8"
+        button, groove, handle = "#152033", "#243044", "#F4F7FB"
+    else:
+        page, panel, ink, muted = "#E8EEF5", "#FFFFFF", "#142033", "#5A6C82"
+        field, line, checked, accent = "#F4F8FC", "rgba(20, 48, 84, 0.16)", "#E3EEFC", "#2F6FE0"
+        button, groove, handle = "#FFFFFF", "#D3DDE8", "#FFFFFF"
     return f"""
-    {root} {{ background: #070B12; color: #E7EEF8; }}
-    {root} QFrame#glass {{ background: #101826; border: 1px solid rgba(160, 190, 255, 0.18); border-radius: 14px; }}
-    {root} QLabel#muted {{ color: #93A4BA; font-size: {small}px; background: transparent; }}
+    {root} {{ background: {page}; color: {ink}; }}
+    {root} QFrame#glass {{ background: {panel}; border: 1px solid {line}; border-radius: 14px; }}
+    {root} QLabel#muted {{ color: {muted}; font-size: {small}px; background: transparent; }}
     {root} QLabel#kpiValue {{
-        color: #F4F7FB; font-family: "JetBrains Mono"; font-size: {int(round(20 * scale))}px;
+        color: {ink}; font-family: "JetBrains Mono"; font-size: {int(round(20 * scale))}px;
         font-weight: 650; background: transparent;
     }}
-    {root} QLabel#body {{ color: #E7EEF8; font-size: {body}px; background: transparent; }}
+    {root} QLabel#body {{ color: {ink}; font-size: {body}px; background: transparent; }}
     {root} QLineEdit, {root} QComboBox {{
-        background: #0C1422; color: #E7EEF8; border: 1px solid rgba(160, 190, 255, 0.22);
+        background: {field}; color: {ink}; border: 1px solid {line};
         border-radius: 8px; padding: 4px 8px; min-height: 22px; font-size: {body}px;
     }}
-    {root} QComboBox QAbstractItemView {{ background: #101826; color: #E7EEF8; selection-background-color: #24406E; }}
+    {root} QComboBox QAbstractItemView {{ background: {panel}; color: {ink}; selection-background-color: {checked}; }}
     {root} QPushButton#demoBtn, {root} QPushButton#demoChip {{
-        background: #152033; color: #D5DDEC; border: 1px solid rgba(160, 190, 255, 0.18);
+        background: {button}; color: {ink}; border: 1px solid {line};
         border-radius: 8px; padding: 6px 12px; font-size: {body}px;
     }}
     {root} QPushButton#demoBtn:checked, {root} QPushButton#demoChip:checked {{
-        background: #1B3E78; color: #FFFFFF; border-color: #6C97E8;
+        background: {checked}; color: {ink}; border-color: {accent};
     }}
     {root} QPushButton#demoPrimary {{
-        background: #2C6BED; color: #FFFFFF; border: none; border-radius: 8px;
+        background: {accent}; color: #FFFFFF; border: none; border-radius: 8px;
         padding: 6px 14px; font-size: {body}px; font-weight: 650;
     }}
-    {root} QSlider::groove:horizontal {{ height: 4px; background: #243044; border-radius: 2px; }}
-    {root} QSlider::sub-page:horizontal {{ background: #6C97E8; border-radius: 2px; }}
+    {root} QSlider::groove:horizontal {{ height: 4px; background: {groove}; border-radius: 2px; }}
+    {root} QSlider::sub-page:horizontal {{ background: {accent}; border-radius: 2px; }}
     {root} QSlider::handle:horizontal {{
-        width: 14px; height: 14px; margin: -6px 0; background: #F4F7FB; border-radius: 7px;
+        width: 14px; height: 14px; margin: -6px 0; background: {handle}; border: 1px solid {line}; border-radius: 7px;
     }}
     """
+
+
+def _rail_qss() -> str:
+    apply_palette()
+    from . import theme
+    if theme.DARK_MODE:
+        panel, ink, muted = "#101826", "#F4F7FB", "#93A4BA"
+        line = "rgba(160, 190, 255, 0.18)"
+        value_face = "JetBrains Mono"
+    else:
+        panel, ink, muted = "#FFFFFF", "#142033", "#5A6C82"
+        line = "rgba(20, 48, 84, 0.16)"
+        value_face = "JetBrains Mono"
+    return (
+        f"QFrame#showcaseRail {{ background: {panel}; border: 1px solid {line}; border-radius: 14px; }}"
+        f"QFrame#showcaseRail QLabel {{ color: {ink}; background: transparent; font-family: '{value_face}'; }}"
+        f"QFrame#showcaseRail QLabel#muted {{ color: {muted}; background: transparent;"
+        " font-family: 'Noto Sans CJK SC', 'Microsoft YaHei UI'; }"
+    )
 
 
 class ModelDemoPage(QWidget):
@@ -867,6 +998,7 @@ class ModelDemoPage(QWidget):
         self.fps_samples: list[float] = []
         self.latency_samples: list[float] = []
         self.count_samples: list[int] = []
+        self.class_samples: list[dict[str, int]] = []
         self.events: list[tuple[str, str, float]] = []
         self.fps_value = 0.0
         self.latency_value = 0.0
@@ -988,7 +1120,7 @@ class ModelDemoPage(QWidget):
         setup.setSpacing(8)
         setup.addWidget(self._cap("展示标题"))
         self.title_edit = QLineEdit()
-        self.title_edit.setPlaceholderText(tr("模型展示"))
+        self.title_edit.setPlaceholderText(tr("低空小目标检测"))
         self.title_edit.textChanged.connect(self._title_changed)
         setup.addWidget(self.title_edit, 1)
         setup.addWidget(self._cap("客户名称"))
@@ -1044,6 +1176,7 @@ class ModelDemoPage(QWidget):
         self.timeline.setVisible(height >= 820)
         self.header.updateGeometry()
         self.timeline.updateGeometry()
+        apply_palette()
         self.setStyleSheet(_chrome_qss(self.ui_scale))
         self.health.apply_fonts()
         if self._showcase is not None:
@@ -1125,7 +1258,10 @@ class ModelDemoPage(QWidget):
             seq = STUDIO.preview_seq
             status = dict(STUDIO.board_status or {})
             connected = bool(STUDIO.connected)
-        if preview and seq != self._preview_seq:
+        if not preview:
+            # Drop the demo picture so an offline board does not keep showing it.
+            self.state.image = QImage()
+        elif seq != self._preview_seq:
             image = QImage.fromData(preview)
             if not image.isNull():
                 self.state.image = image
@@ -1189,11 +1325,14 @@ class ModelDemoPage(QWidget):
         self._latency_target = latency
         self.fps_samples.append(self._fps_target)
         self.latency_samples.append(latency)
-        count = len(result.get("detections") or [])
+        counts = class_counts(result.get("detections") or [])
+        count = sum(counts.values())
         self.count_samples.append(count)
+        self.class_samples.append(dict(counts))
         del self.fps_samples[:-64]
         del self.latency_samples[:-64]
         del self.count_samples[:-64]
+        del self.class_samples[:-64]
         stamp = datetime.now().strftime("%H:%M:%S")
         for det in result.get("detections") or []:
             self.events.append((stamp, str(det.get("class") or ""), float(det.get("score") or 0)))
@@ -1559,13 +1698,7 @@ class ShowcaseDialog(QDialog):
         rail = QFrame()
         rail.setObjectName("showcaseRail")
         rail.setFixedWidth(460)
-        rail.setStyleSheet(
-            "QFrame#showcaseRail { background: #101826; border: 1px solid rgba(160, 190, 255, 0.18);"
-            " border-radius: 14px; }"
-            "QFrame#showcaseRail QLabel { color: #F4F7FB; background: transparent; font-family: 'JetBrains Mono'; }"
-            "QFrame#showcaseRail QLabel#muted { color: #93A4BA; background: transparent;"
-            " font-family: 'Noto Sans CJK SC', 'Microsoft YaHei UI'; }"
-        )
+        rail.setStyleSheet(_rail_qss())
         rail_box = QVBoxLayout(rail)
         rail_box.setContentsMargins(0, 0, 0, 0)
         rail_box.setSpacing(0)
@@ -1575,7 +1708,8 @@ class ShowcaseDialog(QDialog):
         body.addWidget(rail)
         root.addLayout(body, 1)
         root.addWidget(self.timeline)
-        self.setStyleSheet("QDialog { background: #070B12; }")
+        apply_palette()
+        self.setStyleSheet(f"QDialog {{ background: {_BG.name()}; }}")
 
     def keyPressEvent(self, event: Any) -> None:
         if event.key() == Qt.Key.Key_Escape:

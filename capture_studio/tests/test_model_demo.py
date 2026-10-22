@@ -40,8 +40,8 @@ class PageTests(unittest.TestCase):
         self.assertIn("不是识别", badge_copy(self.page.kind)[1])
         self.assertTrue(self.page.state.result["preview_only"])
         self.assertFalse(self.page.state.image.isNull())
-        self.assertGreaterEqual(len(self.page.visible_detections()), 4)
-        self.assertEqual(self.page.zoom_detection()["class"], "person")
+        self.assertGreaterEqual(len(self.page.visible_detections()), 1)
+        self.assertEqual(self.page.zoom_detection()["class"], "drone")
         self.page.set_min_score(0.95)
         self.assertEqual(self.page.visible_detections(), [])
         self.page.set_min_score(0.2)
@@ -89,10 +89,10 @@ class PageTests(unittest.TestCase):
 
     def test_pin_smallest_box_and_fullscreen_hides_controls(self):
         self.page.step(frame_id=6, now=3.0)
-        person = next(row for row in self.page.visible_detections() if row["class"] == "person")
-        x, y, w, h = person["bbox"]
+        drone = next(row for row in self.page.visible_detections() if row["class"] == "drone")
+        x, y, w, h = drone["bbox"]
         self.page.pin_at_image(x + w / 2, y + h / 2)
-        self.assertEqual(self.page.zoom_detection()["track_id"], person["track_id"])
+        self.assertEqual(self.page.zoom_detection()["track_id"], drone["track_id"])
         self.page.set_presentation(title="港口小目标", customer="北港", logo_pos="右上")
         self.assertEqual(self.page.state.title, "港口小目标")
         self.assertEqual(self.page.state.logo_pos, "右上")

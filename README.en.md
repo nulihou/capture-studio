@@ -46,15 +46,17 @@ One discovered board is selected. Several boards are listed for you to choose. A
 
 ### Model demo
 
-![Model demo](docs/screenshots/v12/zh_model_demo.png)
+![Model demo, light](docs/screenshots/v12/zh_light_model_demo.png)
 
-Customer-facing view. The model runs on the board (KV260 DPU, Jetson, RK3588, Ascend, and similar). This PC only receives pictures and results. **Board** reuses the live preview and aligns each frame with `POST /infer`. **F** opens the full-screen show and hides the adjustment controls. The demo/replay badge stays visible.
+Customer-facing view. The model runs on the board (KV260 DPU, Jetson, RK3588, Ascend, and similar). This PC only receives pictures and results. **Board** reuses the live preview and aligns each frame with `POST /infer`. **F** opens the full-screen show and hides the adjustment controls. The demo/replay badge stays visible. Full screen uses the same light or dark theme as the rest of the app.
 
-Without a board, the page plays a redistributable aerial intersection clip with hand-placed marks (source and license: `capture_studio/assets/demo_clip/ATTRIBUTION.md`). It is labeled **Demo data** — demo marks, not recognition. A local video or camera still gets scripted boxes, also labeled demo data. Temperature and CPU in that mode are labeled **Sample meters, not the board**. A session can be saved as JSONL and replayed. Title, customer name, and logo position are set on the page.
+Without a board, the page plays a redistributable ground-to-air clip: a small drone against the sky, with offline marks aligned to the airframe (source and license: `capture_studio/assets/demo_clip/ATTRIBUTION.md`). It is labeled **Demo data** — demo marks, not recognition. The default title is “低空小目标检测”. A local video or camera still gets scripted boxes, also labeled demo data. Temperature and CPU in that mode are labeled **Sample meters, not the board**. A session can be saved as JSONL and replayed. Title, customer name, and logo position are set on the page.
 
 Protocol and the minimal on-board sender: [`capture_studio/docs/inference_protocol.md`](capture_studio/docs/inference_protocol.md).
 
-![Model demo, full screen](docs/screenshots/v12/zh_model_demo_full.png)
+![Model demo, light, full screen](docs/screenshots/v12/zh_light_model_demo_full.png)
+
+Dark page, dark full screen, and the disconnected board source: `docs/screenshots/v12/zh_dark_model_demo.png`, `zh_dark_model_demo_full.png`, `zh_dark_model_demo_board.png`.
 
 ### Peripherals (dark)
 

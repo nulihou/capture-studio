@@ -636,6 +636,7 @@ UI.update({k: v for k, v in _V127.items() if k not in UI})
 MESSAGES.update({k: v for k, v in _V127.items() if k not in MESSAGES})
 _DEMO = {
     "模型展示": "Model Demo",
+    "低空小目标检测": "Low-altitude detection",
     "演示数据": "Demo data",
     "示意读数，不是板端": "Sample meters, not the board",
     "脚本框，不是识别结果": "Scripted boxes, not recognition",
