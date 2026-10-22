@@ -36,16 +36,17 @@ from .product import STUDIO
 _CLIP = Path(__file__).resolve().parent / "assets" / "demo_clip"
 _FONTS = Path(__file__).resolve().parent / "assets" / "fonts"
 
-# One blue, one amber, one green. Class colors are the same swatches the charts use.
+# Saturated swatches. Pale pink and light blue vanish on cloud and sky.
+# Boxes, class bars, and event ticks all read these same colors.
 _CLASS_COLORS = {
-    "person": "#3DDC97", "car": "#E2B15A", "bus": "#6C97E8", "truck": "#F0A36A",
-    "bicycle": "#C9A6FF", "drone": "#7ED0E0", "bird": "#FF8FA3",
+    "person": "#14C96A", "car": "#FF9A1A", "bus": "#6C3CFF", "truck": "#FF5E00",
+    "bicycle": "#E23CFF", "drone": "#FFE14A", "bird": "#FF1F3D",
 }
 _CLASS_ZH = {
     "person": "行人", "car": "汽车", "bus": "公交", "truck": "卡车",
     "bicycle": "自行车", "drone": "无人机", "bird": "飞鸟", "airplane": "飞机",
 }
-_PALETTE = ("#6C97E8", "#E2B15A", "#3DDC97", "#C9A6FF", "#F0A36A", "#7ED0E0", "#FF8FA3", "#9BB0C9")
+_PALETTE = ("#FF1F3D", "#FFE14A", "#14C96A", "#FF9A1A", "#6C3CFF", "#FF5E00", "#E23CFF", "#2EC5FF")
 _INK = QColor("#F4F7FB")
 _MUTED = QColor("#93A4BA")
 _LINE = QColor(150, 186, 255, 48)
@@ -241,28 +242,96 @@ def _section(painter: QPainter, x: float, y: float, width: float, title: str) ->
     return y + 18
 
 
-def _fit(image: QImage, bounds: QRectF, cover: bool = False) -> QRectF:
-    if image.isNull() or bounds.width() <= 1 or bounds.height() <= 1:
+def fit_rect(image_w: float, image_h: float, bounds: QRectF, cover: bool = False) -> QRectF:
+    """Place an image in bounds. Cover and contain both use one scale, so pixels are never stretched."""
+    if image_w <= 1 or image_h <= 1 or bounds.width() <= 1 or bounds.height() <= 1:
         return QRectF()
-    contain = min(bounds.width() / image.width(), bounds.height() / image.height())
-    scale = max(bounds.width() / image.width(), bounds.height() / image.height()) if cover else contain
-    width, height = image.width() * scale, image.height() * scale
+    contain = min(bounds.width() / image_w, bounds.height() / image_h)
+    scale = max(bounds.width() / image_w, bounds.height() / image_h) if cover else contain
+    width, height = image_w * scale, image_h * scale
     return QRectF(bounds.x() + (bounds.width() - width) / 2,
                   bounds.y() + (bounds.height() - height) / 2, width, height)
 
 
-def _brackets(painter: QPainter, rect: QRectF, color: QColor, alpha: float) -> None:
-    if rect.width() < 2 or rect.height() < 2 or alpha <= 0.02:
-        return
-    painter.save()
-    painter.setOpacity(max(0.0, min(1.0, alpha)))
-    arm = max(8.0, min(rect.width(), rect.height()) * 0.28)
-    arm = min(arm, 22.0)
-    pen = QPen(color)
-    pen.setWidthF(max(1.6, min(2.4, min(rect.width(), rect.height()) * 0.06)))
-    pen.setCapStyle(Qt.PenCapStyle.FlatCap)
-    painter.setPen(pen)
-    painter.setBrush(Qt.BrushStyle.NoBrush)
+def _fit(image: QImage, bounds: QRectF, cover: bool = False) -> QRectF:
+    if image.isNull():
+        return QRectF()
+    return fit_rect(image.width(), image.height(), bounds, cover)
+
+
+def stage_content_rect(widget_rect: QRectF) -> QRectF:
+    """The clip the picture is drawn into. Boxes use this same rectangle."""
+    return QRectF(widget_rect).adjusted(13, 13, -13, -13)
+
+
+def map_box_on_rect(rect: QRectF, result_w: float, result_h: float, bbox: Any) -> QRectF:
+    """Protocol pixels onto an already-fitted picture rect."""
+    if rect.isEmpty():
+        return QRectF()
+    rw, rh = max(1.0, float(result_w)), max(1.0, float(result_h))
+    x, y, w, h = (float(v) for v in bbox)
+    sx, sy = rect.width() / rw, rect.height() / rh
+    return QRectF(rect.x() + x * sx, rect.y() + y * sy, w * sx, h * sy)
+
+
+def map_box(bounds: QRectF, image_w: float, image_h: float, result_w: float, result_h: float,
+            bbox: Any, cover: bool = True) -> QRectF:
+    """Map one protocol box into a view. The picture and the box share this transform."""
+    return map_box_on_rect(fit_rect(image_w, image_h, bounds, cover), result_w, result_h, bbox)
+
+
+def _box_stroke(pixels_per_image_pixel: float) -> float:
+    """About 2.5 screen pixels when the picture is near 0.75×, thicker as the picture grows."""
+    scale = max(0.35, float(pixels_per_image_pixel))
+    return max(2.0, min(8.0, 2.5 * scale / 0.75))
+
+
+def _readable_box(box: QRectF, min_side: float = 24.0, pad: float = 3.0,
+                  limit: QRectF | None = None) -> QRectF:
+    """Give a tiny on-screen box a minimum size and a little air. Protocol numbers stay put."""
+    if box.width() <= 0 or box.height() <= 0:
+        return QRectF(box)
+    cx, cy = box.center().x(), box.center().y()
+    width = max(box.width() + pad * 2, min_side)
+    height = max(box.height() + pad * 2, min_side)
+    if limit is not None and limit.width() > 8 and limit.height() > 8:
+        width = min(width, limit.width() * 0.94)
+        height = min(height, limit.height() * 0.94)
+        width = max(4.0, width)
+        height = max(4.0, height)
+    return QRectF(cx - width / 2.0, cy - height / 2.0, width, height)
+
+
+def zoom_source(det: dict[str, Any], result_w: float, result_h: float) -> QRectF:
+    """A square crop around one box, shifted inside the frame so the aspect stays 1:1."""
+    x, y, w, h = (float(v) for v in det["bbox"])
+    pad = max(w, h, 24.0) * 0.9
+    side = min(max(w, h) + pad * 2.0, float(result_w), float(result_h))
+    side = max(1.0, side)
+    left = min(max(0.0, (x + w / 2.0) - side / 2.0), max(0.0, float(result_w) - side))
+    top = min(max(0.0, (y + h / 2.0) - side / 2.0), max(0.0, float(result_h) - side))
+    return QRectF(left, top, side, side)
+
+
+def uniform_dest(dest: QRectF, src: QRectF) -> tuple[QRectF, float]:
+    """Letterbox src into dest with one scale. A tall cell cannot stretch the crop."""
+    if src.width() <= 0 or src.height() <= 0 or dest.width() <= 0 or dest.height() <= 0:
+        return QRectF(), 1.0
+    scale = min(dest.width() / src.width(), dest.height() / src.height())
+    width, height = src.width() * scale, src.height() * scale
+    return (QRectF(dest.left() + (dest.width() - width) / 2.0,
+                   dest.top() + (dest.height() - height) / 2.0, width, height), scale)
+
+
+def gallery_picture_rect(cell: QRectF, caption_h: float = 18.0) -> QRectF:
+    """Square picture at the top of a gallery cell. The caption sits under it."""
+    avail_h = max(1.0, cell.height() - caption_h)
+    side = min(cell.width(), avail_h)
+    x = cell.left() + (cell.width() - side) / 2.0
+    return QRectF(x, cell.top(), side, side)
+
+
+def _bracket_path(rect: QRectF, arm: float) -> QPainterPath:
     path = QPainterPath()
 
     def corner(px: float, py: float, dx: float, dy: float) -> None:
@@ -274,42 +343,102 @@ def _brackets(painter: QPainter, rect: QRectF, color: QColor, alpha: float) -> N
     corner(rect.right(), rect.top(), -1, 1)
     corner(rect.left(), rect.bottom(), 1, -1)
     corner(rect.right(), rect.bottom(), -1, -1)
+    return path
+
+
+def _brackets(painter: QPainter, rect: QRectF, color: QColor, alpha: float,
+              stroke: float = 2.5, strong: bool = False) -> None:
+    if rect.width() < 2 or rect.height() < 2 or alpha <= 0.02:
+        return
+    painter.save()
+    painter.setOpacity(max(0.0, min(1.0, alpha)))
+    short = min(rect.width(), rect.height())
+    width = stroke * (1.4 if strong else 1.0)
+    arm = max(width * 5.5, short * 0.46)
+    arm = min(arm, short * 0.5)
+    path = _bracket_path(rect, arm)
+    painter.setBrush(Qt.BrushStyle.NoBrush)
+    halo = QPen(QColor(5, 8, 14, 230))
+    halo.setWidthF(width + 2.6)
+    halo.setCapStyle(Qt.PenCapStyle.FlatCap)
+    halo.setJoinStyle(Qt.PenJoinStyle.MiterJoin)
+    painter.setPen(halo)
+    painter.drawPath(path)
+    ink = QColor(color)
+    if strong:
+        ink = ink.lighter(112)
+    pen = QPen(ink)
+    pen.setWidthF(width)
+    pen.setCapStyle(Qt.PenCapStyle.FlatCap)
+    pen.setJoinStyle(Qt.PenJoinStyle.MiterJoin)
+    painter.setPen(pen)
     painter.drawPath(path)
     painter.restore()
 
 
 def _label(painter: QPainter, rect: QRectF, det: dict[str, Any], color: QColor, alpha: float,
-           bounds: QRectF, scale: float) -> None:
+           bounds: QRectF, scale: float, strong: bool = False,
+           occupied: list[QRectF] | None = None) -> QRectF:
+    """Draw the class chip outside the target. Returns the chip rect (empty if skipped)."""
+    if alpha <= 0.02:
+        return QRectF()
     text = f"{class_label(str(det['class']))}  {float(det['score']):.2f}"
     painter.save()
     painter.setOpacity(max(0.0, min(1.0, alpha)))
-    painter.setFont(_font(13 * scale, QFont.Weight.Medium))
+    painter.setFont(_font(15 * scale * (1.06 if strong else 1.0),
+                          QFont.Weight.DemiBold if strong else QFont.Weight.Medium))
     metrics = painter.fontMetrics()
-    box_h = metrics.height() + 6
-    box_w = metrics.horizontalAdvance(text) + 18
-    x = rect.left()
-    y = rect.top() - box_h - 3
-    if y < bounds.top() + 2:
-        y = rect.top() + 3
-    if x + box_w > bounds.right() - 2:
-        x = max(bounds.left() + 2, bounds.right() - box_w - 2)
-    box = QRectF(x, y, box_w, box_h)
+    box_h = metrics.height() + 8
+    box_w = metrics.horizontalAdvance(text) + 16
+    gap = 4.0
+    candidates = (
+        QRectF(rect.left(), rect.top() - box_h - gap, box_w, box_h),
+        QRectF(rect.left(), rect.bottom() + gap, box_w, box_h),
+        QRectF(rect.right() + gap, rect.top(), box_w, box_h),
+        QRectF(rect.left() - box_w - gap, rect.top(), box_w, box_h),
+    )
+
+    def fits(candidate: QRectF) -> bool:
+        if candidate.left() < bounds.left() + 1 or candidate.top() < bounds.top() + 1:
+            return False
+        if candidate.right() > bounds.right() - 1 or candidate.bottom() > bounds.bottom() - 1:
+            return False
+        if candidate.intersects(rect.adjusted(-1, -1, 1, 1)):
+            return False
+        if occupied:
+            for other in occupied:
+                if candidate.intersects(other.adjusted(-2, -2, 2, 2)):
+                    return False
+        return True
+
+    chosen = next((candidate for candidate in candidates if fits(candidate)), None)
+    if chosen is None:
+        chosen = QRectF(candidates[0])
+        if chosen.top() < bounds.top() + 1:
+            chosen.moveTop(bounds.top() + 1)
+        if chosen.left() < bounds.left() + 1:
+            chosen.moveLeft(bounds.left() + 1)
+        if chosen.right() > bounds.right() - 1:
+            chosen.moveRight(bounds.right() - 1)
+        if chosen.intersects(rect):
+            chosen.moveTop(min(rect.bottom() + gap, bounds.bottom() - box_h))
     painter.setPen(Qt.PenStyle.NoPen)
-    painter.setBrush(QColor(6, 10, 18, 210))
-    painter.drawRoundedRect(box, 2, 2)
+    painter.setBrush(QColor(4, 7, 12, 238))
+    painter.drawRoundedRect(chosen, 2, 2)
     painter.setBrush(color)
-    painter.drawRoundedRect(QRectF(box.left(), box.top(), 3, box.height()), 1, 1)
-    painter.setPen(QColor("#F4F7FB"))
-    painter.drawText(box.adjusted(8, 0, -4, 0),
+    painter.drawRect(QRectF(chosen.left(), chosen.top(), 4, chosen.height()))
+    painter.setPen(QColor("#FFFFFF"))
+    painter.drawText(chosen.adjusted(8, 0, -4, 0),
                      int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), text)
     painter.restore()
+    return chosen
 
 
 def _draw_zoom(painter: QPainter, dest: QRectF, image: QImage, det: dict[str, Any] | None,
                result: dict[str, Any] | None) -> None:
     painter.save()
     clip = QPainterPath()
-    clip.addRoundedRect(dest, 8, 8)
+    clip.addRoundedRect(dest, 2, 2)
     painter.setClipPath(clip)
     painter.fillRect(dest, QColor("#121416") if DEMO_DARK else QColor("#EEF0F2"))
     if image.isNull() or det is None or not result:
@@ -323,17 +452,18 @@ def _draw_zoom(painter: QPainter, dest: QRectF, image: QImage, det: dict[str, An
         return
     x, y, w, h = (float(v) for v in det["bbox"])
     rw, rh = max(1, int(result["width"])), max(1, int(result["height"]))
-    pad = max(w, h, 24) * 0.9
-    side = max(w, h) + pad * 2
-    src = QRectF((x + w / 2) - side / 2, (y + h / 2) - side / 2, side, side)
-    src = src.intersected(QRectF(0, 0, rw, rh))
-    if not src.isEmpty():
+    src = zoom_source(det, rw, rh)
+    drawn, scale = uniform_dest(dest, src)
+    if not drawn.isEmpty():
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-        painter.drawImage(dest, image, QRectF(src.x() / rw * image.width(), src.y() / rh * image.height(),
-                                              src.width() / rw * image.width(), src.height() / rh * image.height()))
-        sx, sy = dest.width() / src.width(), dest.height() / src.height()
-        box = QRectF(dest.x() + (x - src.x()) * sx, dest.y() + (y - src.y()) * sy, w * sx, h * sy)
-        _brackets(painter, box, class_color(str(det["class"])), 1.0)
+        painter.drawImage(drawn, image, QRectF(src.x() / rw * image.width(),
+                                              src.y() / rh * image.height(),
+                                              src.width() / rw * image.width(),
+                                              src.height() / rh * image.height()))
+        box = QRectF(drawn.x() + (x - src.x()) * scale, drawn.y() + (y - src.y()) * scale,
+                     w * scale, h * scale)
+        _brackets(painter, _readable_box(box, limit=drawn), class_color(str(det["class"])), 1.0,
+                  stroke=min(3.4, _box_stroke(scale)), strong=True)
     painter.restore()
     painter.setPen(QPen(_LINE, 1))
     painter.setBrush(Qt.BrushStyle.NoBrush)
@@ -420,7 +550,7 @@ class VideoStage(QWidget):
         image = self.page.state.image
         if result is None or image.isNull():
             return
-        rect = _fit(image, QRectF(self.rect()).adjusted(10, 10, -10, -10), cover=True)
+        rect = _fit(image, stage_content_rect(QRectF(self.rect())), cover=True)
         if not rect.contains(event.position()):
             return
         rw, rh = max(1, int(result["width"])), max(1, int(result["height"]))
@@ -436,7 +566,7 @@ class VideoStage(QWidget):
         painter.fillRect(self.rect(), _BG)
         bounds = QRectF(self.rect()).adjusted(6, 6, -6, -6)
         _panel(painter, bounds, _RADIUS)
-        inner = bounds.adjusted(7, 7, -7, -7)
+        inner = stage_content_rect(QRectF(self.rect()))
         image = self.page.state.image
         rect = _fit(image, inner, cover=True) if not image.isNull() else QRectF()
         if rect.isEmpty():
@@ -445,31 +575,42 @@ class VideoStage(QWidget):
             painter.drawText(inner, int(Qt.AlignmentFlag.AlignCenter), tr("等待画面"))
         else:
             clip = QPainterPath()
-            clip.addRoundedRect(inner, 8, 8)
+            clip.addRoundedRect(inner, 3, 3)
             painter.setClipPath(clip)
             painter.drawImage(rect, image)
             veil = QLinearGradient(inner.topLeft(), QPointF(inner.left(), inner.top() + 56))
             veil.setColorAt(0.0, QColor(5, 8, 14, 110))
             veil.setColorAt(1.0, QColor(5, 8, 14, 0))
             painter.fillRect(inner, veil)
-            self._boxes(painter, rect)
+            self._boxes(painter, rect, inner)
             painter.setClipping(False)
         self._badge(painter, bounds)
 
-    def _boxes(self, painter: QPainter, rect: QRectF) -> None:
+    def _boxes(self, painter: QPainter, rect: QRectF, clip: QRectF) -> None:
         result = self.page.state.result
-        if not result:
+        if not result or rect.isEmpty():
             return
         rw, rh = max(1, int(result["width"])), max(1, int(result["height"]))
-        sx, sy = rect.width() / rw, rect.height() / rh
-        scale = max(0.85, min(self.height() / 640, 1.6))
-        for slot in self.page.slots.values():
+        stroke = _box_stroke(max(rect.width() / rw, rect.height() / rh))
+        text_scale = max(0.9, min(self.height() / 640.0, 1.45))
+        slots = list(self.page.slots.values())
+        if not slots:
+            return
+        top = max(float(slot["det"].get("score") or 0) for slot in slots)
+        pinned = self.page._pinned
+        placed: list[QRectF] = []
+        for slot in slots:
             det = slot["det"]
-            x, y, w, h = det["bbox"]
-            box = QRectF(rect.x() + x * sx, rect.y() + y * sy, w * sx, h * sy)
+            mapped = map_box_on_rect(rect, rw, rh, det["bbox"])
+            shown = _readable_box(mapped, limit=clip)
+            score = float(det.get("score") or 0)
+            strong = (pinned is not None and det.get("track_id") == pinned) or (
+                pinned is None and abs(score - top) < 1e-9)
             color = class_color(str(det["class"]))
-            _brackets(painter, box, color, slot["alpha"])
-            _label(painter, box, det, color, slot["alpha"], rect, scale)
+            _brackets(painter, shown, color, slot["alpha"], stroke, strong)
+            chip = _label(painter, shown, det, color, slot["alpha"], clip, text_scale, strong, placed)
+            if not chip.isEmpty():
+                placed.append(chip)
 
     def _badge(self, painter: QPainter, bounds: QRectF) -> None:
         title, _detail = badge_copy(self.page.kind)
@@ -698,12 +839,14 @@ class RailCanvas(QWidget):
         cap_h = 18
         for index, det in enumerate(targets):
             cell = QRectF(inner.left() + index * (cell_w + gap), y, cell_w, cell_h)
-            picture = cell.adjusted(0, 0, 0, -cap_h)
+            picture = gallery_picture_rect(cell, cap_h)
+            if picture.width() < 28:
+                continue
             _draw_zoom(painter, picture, self.page.state.image, det, self.page.state.result)
             caption = f"{class_label(str(det['class']))}  {float(det['score']):.2f}"
             painter.setPen(_MUTED)
             painter.setFont(_font(11))
-            painter.drawText(QRectF(cell.left(), cell.bottom() - cap_h + 2, cell.width(), cap_h - 2),
+            painter.drawText(QRectF(picture.left(), picture.bottom() + 2, picture.width(), cap_h - 2),
                              int(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter), caption)
 
 

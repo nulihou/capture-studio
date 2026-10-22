@@ -16,7 +16,7 @@
 
 ## 标注
 
-`demo.jsonl` 每一行是协议 `capture-studio.inference.v1`，`preview_only: true`，`model` 为 `demo-clip`，类别 `bird`。框是离线对照画面标出的静态演示标注，每帧大约 4–6 只可见的鸟，尺寸贴着鸟的轮廓。这不是数据集 GT，也不是 Capture Studio 在电脑上跑出来的识别结果。接到板端模型后，来源改成「板端」，这些标注不再使用。
+`demo.jsonl` 每一行是协议 `capture-studio.inference.v1`，`preview_only: true`，`model` 为 `demo-clip`，类别 `bird`。框是离线对照每一帧 JPEG 收紧到鸟体暗部的静态演示标注，每帧大约 7–12 只，贴着鸟的轮廓，画面里大部分可见的鸟都有框。这不是数据集 GT，也不是 Capture Studio 在电脑上跑出来的识别结果。接到板端模型后，来源改成「板端」，这些标注不再使用。
 
 ## 没有采用的素材
 

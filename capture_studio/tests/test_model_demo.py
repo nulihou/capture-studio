@@ -6,12 +6,15 @@ from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtGui import QImage  # noqa: E402
+from PySide6.QtCore import QRectF  # noqa: E402
+from PySide6.QtGui import QColor, QImage, QPainter  # noqa: E402
 from PySide6.QtWidgets import QApplication, QSlider  # noqa: E402
 
 from capture_studio import i18n, motion  # noqa: E402
 from capture_studio.inference import demo_overlay, load_jsonl  # noqa: E402
-from capture_studio.model_demo import ModelDemoPage, badge_copy  # noqa: E402
+from capture_studio.model_demo import (ModelDemoPage, _box_stroke, _readable_box, badge_copy,  # noqa: E402
+                                       class_color, fit_rect, gallery_picture_rect, map_box,
+                                       stage_content_rect, uniform_dest, zoom_source)
 
 APP = QApplication.instance() or QApplication([])
 
@@ -151,6 +154,142 @@ class PageTests(unittest.TestCase):
         finally:
             theme.DARK_MODE = False
             model_demo.set_demo_dark(False)
+
+    def test_known_pixel_box_maps_across_window_sizes_and_fullscreen(self):
+        image_w, image_h = 1280, 720
+        bbox = (400, 200, 80, 40)
+        views = (
+            QRectF(0, 0, 1280, 720),
+            QRectF(10, 20, 960, 540),
+            QRectF(0, 0, 400, 400),
+            QRectF(0, 0, 1000, 400),
+            QRectF(0, 0, 1920, 1080),
+        )
+        for bounds in views:
+            rect = fit_rect(image_w, image_h, bounds, cover=True)
+            self.assertAlmostEqual(rect.width() / image_w, rect.height() / image_h, places=4)
+            mapped = map_box(bounds, image_w, image_h, image_w, image_h, bbox, cover=True)
+            self.assertAlmostEqual(mapped.left(), rect.left() + bbox[0] / image_w * rect.width(), places=3)
+            self.assertAlmostEqual(mapped.top(), rect.top() + bbox[1] / image_h * rect.height(), places=3)
+            self.assertAlmostEqual(mapped.width() / bbox[2], mapped.height() / bbox[3], places=4)
+            center = map_box(bounds, image_w, image_h, image_w, image_h,
+                             (image_w / 2 - 1, image_h / 2 - 1, 2, 2), cover=True)
+            self.assertAlmostEqual(center.center().x(), bounds.center().x(), delta=0.6)
+            self.assertAlmostEqual(center.center().y(), bounds.center().y(), delta=0.6)
+        # A result authored at a different size still uses that size, not the view.
+        half = map_box(QRectF(0, 0, 640, 360), 640, 360, 1280, 720, (576, 324, 128, 72), cover=True)
+        self.assertAlmostEqual(half.center().x(), 320, delta=1.0)
+        self.assertAlmostEqual(half.center().y(), 180, delta=1.0)
+
+        tiny = _readable_box(QRectF(10, 20, 8, 12))
+        self.assertGreaterEqual(tiny.width(), 24)
+        self.assertGreaterEqual(tiny.height(), 24)
+        self.assertAlmostEqual(tiny.center().x(), 14, places=3)
+        self.assertAlmostEqual(tiny.center().y(), 26, places=3)
+        self.assertGreaterEqual(_box_stroke(0.75), 2.0)
+        self.assertLessEqual(_box_stroke(0.75), 3.2)
+        self.assertGreater(_box_stroke(2.0), _box_stroke(0.75) + 2)
+
+        tall = gallery_picture_rect(QRectF(0, 0, 100, 420), 18)
+        wide = gallery_picture_rect(QRectF(0, 0, 420, 100), 18)
+        self.assertAlmostEqual(tall.width(), tall.height())
+        self.assertAlmostEqual(wide.width(), wide.height())
+        self.assertLess(tall.width(), 120)
+        self.assertAlmostEqual(wide.width(), 82, delta=0.1)
+        src = zoom_source({"bbox": [10, 30, 20, 40]}, 200, 200)
+        self.assertAlmostEqual(src.width(), src.height(), places=3)
+        drawn, _scale = uniform_dest(QRectF(0, 0, 40, 200), src)
+        self.assertAlmostEqual(drawn.width(), drawn.height(), places=3)
+        self.assertAlmostEqual(drawn.width() / src.width(), drawn.height() / src.height(), places=4)
+
+        bird = class_color("bird")
+        self.assertGreater(bird.red() - bird.green(), 150)
+        self.assertLess(bird.green(), 80)
+        drone = class_color("drone")
+        self.assertGreater(drone.red(), 220)
+        self.assertGreater(drone.green(), 180)
+        self.assertLess(drone.blue(), 140)
+        bus = class_color("bus")
+        self.assertLess(bus.green(), 100)
+        self.assertGreater(bus.blue(), 200)
+
+        image = QImage(320, 180, QImage.Format.Format_RGB32)
+        image.fill(QColor(170, 206, 230))
+        painter = QPainter(image)
+        painter.fillRect(120, 70, 40, 24, QColor(0, 255, 0))
+        painter.end()
+        result = {
+            "schema": "capture-studio.inference.v1", "frame_id": 3, "width": 320, "height": 180,
+            "model": "demo", "backend": "test", "latency_ms": 1, "preview_only": True,
+            "detections": [{"bbox": [120, 70, 40, 24], "class": "bird", "score": 0.8, "track_id": 1}],
+        }
+        self.page.show_board_frame(image, result, None, connected=True)
+        self.page.timer.stop()
+        self.page._stop_poller()
+
+        def green_center(grab, expected):
+            x0 = max(0, int(expected.left()) - 6)
+            y0 = max(0, int(expected.top()) - 6)
+            x1 = min(grab.width() - 1, int(expected.right()) + 6)
+            y1 = min(grab.height() - 1, int(expected.bottom()) + 6)
+            sx = sy = n = 0
+            for y in range(y0, y1 + 1):
+                for x in range(x0, x1 + 1):
+                    color = grab.pixelColor(x, y)
+                    if color.green() > 150 and color.green() > color.red() + 40 and color.green() > color.blue() + 40:
+                        sx += x
+                        sy += y
+                        n += 1
+            self.assertGreater(n, 8)
+            return sx / n, sy / n
+
+        try:
+            for size in ((1280, 720), (1600, 900), (1100, 800)):
+                self.page.resize(*size)
+                APP.processEvents()
+                self.page.stage.repaint()
+                self.assertGreater(self.page.stage.width(), 200)
+                grab = self.page.stage.grab().toImage()
+                inner = stage_content_rect(QRectF(self.page.stage.rect()))
+                expected = map_box(inner, 320, 180, 320, 180, (120, 70, 40, 24), cover=True)
+                cx, cy = green_center(grab, expected)
+                self.assertAlmostEqual(cx, expected.center().x(), delta=2.0)
+                self.assertAlmostEqual(cy, expected.center().y(), delta=2.0)
+            self.page.open_showcase()
+            APP.processEvents()
+            stage = self.page._showcase.stage
+            stage.repaint()
+            grab = stage.grab().toImage()
+            inner = stage_content_rect(QRectF(stage.rect()))
+            expected = map_box(inner, 320, 180, 320, 180, (120, 70, 40, 24), cover=True)
+            cx, cy = green_center(grab, expected)
+            self.assertAlmostEqual(cx, expected.center().x(), delta=2.0)
+            self.assertAlmostEqual(cy, expected.center().y(), delta=2.0)
+        finally:
+            if self.page.showcase_open():
+                self.page._showcase.close()
+
+    def test_demo_marks_sit_on_birds_inside_the_frame(self):
+        from capture_studio.model_demo import clip_frame
+        counts = []
+        for frame_id in range(24):
+            image, result = clip_frame(frame_id)
+            self.assertEqual((image.width(), image.height()), (result["width"], result["height"]))
+            self.assertTrue(result["preview_only"])
+            dets = result["detections"]
+            self.assertGreaterEqual(len(dets), 6)
+            for det in dets:
+                self.assertEqual(det["class"], "bird")
+                self.assertLess(float(det["score"]), 0.95)
+                x, y, w, h = det["bbox"]
+                self.assertGreaterEqual(w, 8)
+                self.assertGreaterEqual(h, 8)
+                self.assertGreaterEqual(x, 0)
+                self.assertGreaterEqual(y, 0)
+                self.assertLessEqual(x + w, result["width"] + 0.5)
+                self.assertLessEqual(y + h, result["height"] + 0.5)
+            counts.append(len(dets))
+        self.assertGreaterEqual(sum(counts) / len(counts), 8)
 
     def test_english_chrome(self):
         i18n.LANG = "en"
